@@ -1,0 +1,22 @@
+import Testing
+@testable import TextKit
+
+struct PromptComposerTests {
+    @Test
+    func includesRefineInstructionWhenPresent() {
+        let composer = PromptComposer()
+        let request = GenerationRequest(
+            inputText: "Draft a better reply.",
+            refineInstruction: "Keep it under 50 words.",
+            tool: .reply,
+            mode: .replyProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced
+        )
+
+        let prompt = composer.compose(for: request)
+
+        #expect(prompt.contains("Refine Instruction:\nKeep it under 50 words."))
+        #expect(prompt.contains("Input:\nDraft a better reply."))
+    }
+}
