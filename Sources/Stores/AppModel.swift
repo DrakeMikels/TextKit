@@ -13,12 +13,14 @@ final class AppModel {
     private let routeEngine: RouteEngine
     private let promptComposer: PromptComposer
     private let inferenceEngine: InferenceEngine
+    private let reductionEngine: ReductionEngine
     private let outputPostProcessor: OutputPostProcessor
     private let cacheStore: CacheStore
     private var lastSelectedModeByTool: [ToolKind: ToolMode]
     private var generationTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private var generationRevision = 0
+    private var lastReductionFingerprint: String?
 
     var inputText: String = ""
     var refineInstruction: String = ""
@@ -27,6 +29,7 @@ final class AppModel {
     var selectedMode: ToolMode
     var outputText = "Copy text anywhere on macOS to precompute a result."
     var statusText = "On-device"
+    var reductionStats: ReductionStats?
 
     init(
         settingsStore: SettingsStore = SettingsStore(),
@@ -36,6 +39,7 @@ final class AppModel {
         routeEngine: RouteEngine = RouteEngine(),
         promptComposer: PromptComposer = PromptComposer(),
         inferenceEngine: InferenceEngine = InferenceEngine(),
+        reductionEngine: ReductionEngine = ReductionEngine(),
         outputPostProcessor: OutputPostProcessor = OutputPostProcessor(),
         cacheStore: CacheStore = CacheStore()
     ) {
@@ -46,6 +50,7 @@ final class AppModel {
         self.routeEngine = routeEngine
         self.promptComposer = promptComposer
         self.inferenceEngine = inferenceEngine
+        self.reductionEngine = reductionEngine
         self.outputPostProcessor = outputPostProcessor
         self.cacheStore = cacheStore
         self.selectedTool = settingsStore.defaultFallbackTool
@@ -63,7 +68,7 @@ final class AppModel {
                 for: self.settingsStore.localModelOption,
                 quantPreset: self.settingsStore.quantPreset
             )
-            self.statusText = self.modelManager.statusSummary
+            self.statusText = self.defaultStatusText()
         }
     }
 
@@ -72,6 +77,10 @@ final class AppModel {
     }
 
     var modelSummary: String {
+        if !selectedTool.usesModel {
+            return "Local reducer · no model required"
+        }
+
         let model = modelManager.model(
             for: settingsStore.localModelOption,
             quantPreset: settingsStore.quantPreset
@@ -95,10 +104,29 @@ final class AppModel {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasPendingRefineChanges
     }
 
+    var hasPendingReductionChanges: Bool {
+        guard selectedTool == .reduce else { return false }
+        return reductionFingerprint(for: inputText, mode: selectedMode) != lastReductionFingerprint
+    }
+
+    var canSubmitReduction: Bool {
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasPendingReductionChanges
+    }
+
+    var reductionSummaryText: String? {
+        guard let reductionStats else { return nil }
+        return "Chars \(reductionStats.originalCharacterCount.formatted()) -> \(reductionStats.reducedCharacterCount.formatted()) · Estimated tokens \(reductionStats.originalEstimatedTokenCount.formatted()) -> \(reductionStats.reducedEstimatedTokenCount.formatted()) · \(String(format: "%.1f", reductionStats.reductionPercent))% smaller"
+    }
+
     func selectTool(_ tool: ToolKind) {
         selectedTool = tool
         if selectedMode.tool != tool {
             selectedMode = lastSelectedModeByTool[tool] ?? tool.defaultMode
+        }
+        if tool == .reduce {
+            clearReductionResult()
+        } else {
+            reductionStats = nil
         }
         regenerateNow()
     }
@@ -106,16 +134,36 @@ final class AppModel {
     func selectMode(_ mode: ToolMode) {
         selectedMode = mode
         lastSelectedModeByTool[mode.tool] = mode
+        if mode.tool == .reduce {
+            clearReductionResult()
+        }
         regenerateNow()
     }
 
     func scheduleRegeneration() {
+        guard !selectedTool.requiresManualSubmit else { return }
         debounceTask?.cancel()
         debounceTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
             self?.regenerateNow()
         }
+    }
+
+    func handleInputChange() {
+        if selectedTool.requiresManualSubmit {
+            clearReductionResult()
+            if inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                statusText = "Ready to reduce locally"
+                outputText = "Copy text anywhere on macOS, then press send to reduce it."
+            } else {
+                statusText = "Press send to reduce the current text"
+                outputText = "Reduce is manual so you can choose when to shrink logs or long text."
+            }
+            return
+        }
+
+        scheduleRegeneration()
     }
 
     func refreshModelAvailability() {
@@ -125,7 +173,7 @@ final class AppModel {
                 for: self.settingsStore.localModelOption,
                 quantPreset: self.settingsStore.quantPreset
             )
-            self.statusText = self.modelManager.statusSummary
+            self.statusText = self.defaultStatusText()
         }
     }
 
@@ -138,7 +186,7 @@ final class AppModel {
                 for: self.settingsStore.localModelOption,
                 quantPreset: self.settingsStore.quantPreset
             )
-            self.statusText = self.modelManager.statusSummary
+            self.statusText = self.defaultStatusText()
             self.cacheStore.invalidateAll()
             self.regenerateNow()
         }
@@ -146,7 +194,14 @@ final class AppModel {
 
     func handleGenerationSettingsChange() {
         cacheStore.invalidateAll()
-        scheduleRegeneration()
+        if selectedTool.requiresManualSubmit {
+            clearReductionResult()
+            outputText = inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? "Copy text anywhere on macOS, then press send to reduce it."
+                : "Reduce is manual so you can choose when to shrink logs or long text."
+        } else {
+            scheduleRegeneration()
+        }
     }
 
     func submitRefine() {
@@ -159,6 +214,25 @@ final class AppModel {
         regenerateNow()
     }
 
+    func submitReduction() {
+        guard selectedTool == .reduce else { return }
+
+        generationTask?.cancel()
+        let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else {
+            clearReductionResult()
+            statusText = "Ready to reduce locally"
+            outputText = "Copy text anywhere on macOS, then press send to reduce it."
+            return
+        }
+
+        let result = reductionEngine.reduce(trimmedInput, mode: selectedMode)
+        outputText = result.text
+        reductionStats = result.stats
+        lastReductionFingerprint = reductionFingerprint(for: trimmedInput, mode: selectedMode)
+        statusText = "Reduced locally · \(String(format: "%.1f", result.stats.reductionPercent))% smaller"
+    }
+
     func runDebugEvaluation(
         inputText: String,
         refineInstruction: String,
@@ -167,6 +241,15 @@ final class AppModel {
         let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else {
             throw DebugEvaluationError.emptyInput
+        }
+
+        if mode.tool == .reduce {
+            let result = reductionEngine.reduce(trimmedInput, mode: mode)
+            return DebugEvaluationResult(
+                rawOutput: result.text,
+                finalizedOutput: result.text,
+                keepsRuntimeWarm: false
+            )
         }
 
         let request = GenerationRequest(
@@ -233,7 +316,7 @@ final class AppModel {
     func regenerateNow() {
         generationTask?.cancel()
 
-        guard !showsSetupFlow else {
+        guard !(showsSetupFlow && selectedTool.usesModel) else {
             statusText = setupManager.isRunning ? setupManager.stepTitle : modelManager.statusSummary
             outputText = setupManager.summary(
                 for: modelManager.runtimeState,
@@ -247,8 +330,18 @@ final class AppModel {
 
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            outputText = "Copy text anywhere on macOS to precompute a result."
-            statusText = modelManager.statusSummary
+            outputText = selectedTool == .reduce
+                ? "Copy text anywhere on macOS, then press send to reduce it."
+                : "Copy text anywhere on macOS to precompute a result."
+            statusText = defaultStatusText()
+            reductionStats = nil
+            return
+        }
+
+        guard selectedTool.usesModel else {
+            clearReductionResult()
+            statusText = "Press send to reduce the current text"
+            outputText = "Reduce is manual so you can choose when to shrink logs or long text."
             return
         }
 
@@ -276,6 +369,7 @@ final class AppModel {
         if let cached = cacheStore.output(for: key) {
             outputText = cached
             statusText = "\(modelManager.statusSummary) · cached"
+            reductionStats = nil
             return
         }
 
@@ -290,6 +384,7 @@ final class AppModel {
         )
         outputText = "Generating locally with \(model.displayName)…"
         statusText = modelManager.statusSummary
+        reductionStats = nil
 
         generationTask = Task { [weak self] in
             guard let self else { return }
@@ -316,6 +411,7 @@ final class AppModel {
                 self.modelManager.markReady(isWarm: generation.keepsRuntimeWarm)
                 self.outputText = output
                 self.statusText = "\(self.modelManager.statusSummary) · ready"
+                self.reductionStats = nil
             } catch let error as InferenceEngineError {
                 guard !Task.isCancelled, revision == self.generationRevision else { return }
 
@@ -346,7 +442,7 @@ final class AppModel {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.writeObjects([ClipboardMonitor.makeManagedPasteboardItem(text: outputText)])
-        statusText = "\(modelManager.statusSummary) · copied"
+        statusText = selectedTool == .reduce ? "Reduced text copied" : "\(modelManager.statusSummary) · copied"
     }
 
     func startSetup() {
@@ -369,7 +465,7 @@ final class AppModel {
                 for: self.settingsStore.localModelOption,
                 quantPreset: self.settingsStore.quantPreset
             )
-            self.statusText = self.modelManager.statusSummary
+            self.statusText = self.defaultStatusText()
 
             if succeeded {
                 self.cacheStore.invalidateAll()
@@ -390,6 +486,7 @@ final class AppModel {
             self.inputText = clipboardText
             self.refineInstruction = ""
             self.refineDraft = ""
+            self.clearReductionResult()
 
             let routedTool = self.routeEngine.route(
                 clipboardText,
@@ -405,5 +502,20 @@ final class AppModel {
     private func shouldIgnoreClipboardText(_ clipboardText: String) -> Bool {
         let trimmedOutput = outputText.trimmingCharacters(in: .whitespacesAndNewlines)
         return NSApplication.shared.isActive && !trimmedOutput.isEmpty && clipboardText == trimmedOutput
+    }
+
+    private func reductionFingerprint(for inputText: String, mode: ToolMode) -> String? {
+        let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else { return nil }
+        return "\(mode.id)|\(trimmedInput)"
+    }
+
+    private func clearReductionResult() {
+        reductionStats = nil
+        lastReductionFingerprint = nil
+    }
+
+    private func defaultStatusText() -> String {
+        selectedTool == .reduce ? "Ready to reduce locally" : modelManager.statusSummary
     }
 }

@@ -572,7 +572,7 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
 
             Picker("Tool & Style", selection: $selectedAdvancedModeID) {
-                ForEach(ToolMode.allCases) { mode in
+                ForEach(ToolMode.promptTunableModes) { mode in
                     Text("\(mode.tool.title) · \(mode.title)").tag(mode.id)
                 }
             }

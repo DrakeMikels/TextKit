@@ -5,6 +5,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     case prompt
     case extract
     case reply
+    case reduce
 
     var id: String { rawValue }
 
@@ -18,6 +19,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "Extract"
         case .reply:
             "Reply"
+        case .reduce:
+            "Reduce"
         }
     }
 
@@ -31,6 +34,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "line.3.horizontal.decrease.circle"
         case .reply:
             "arrowshape.turn.up.left"
+        case .reduce:
+            "arrow.down.right.and.arrow.up.left"
         }
     }
 
@@ -44,7 +49,17 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "Pull structure from messy text."
         case .reply:
             "Draft a response to copied text."
+        case .reduce:
+            "Shrink repetitive logs or long text."
         }
+    }
+
+    var usesModel: Bool {
+        self != .reduce
+    }
+
+    var requiresManualSubmit: Bool {
+        self == .reduce
     }
 
     var modes: [ToolMode] {

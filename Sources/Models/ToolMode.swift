@@ -25,6 +25,11 @@ struct ToolMode: Hashable, Codable, Identifiable {
     static let replyConcise = ToolMode(id: "reply.concise", title: "Concise", tool: .reply)
     static let replyWarm = ToolMode(id: "reply.warm", title: "Warm", tool: .reply)
 
+    static let reduceSafe = ToolMode(id: "reduce.safe", title: "Safe", tool: .reduce)
+    static let reduceLongText = ToolMode(id: "reduce.long-text", title: "Long Text", tool: .reduce)
+    static let reduceLogs = ToolMode(id: "reduce.logs", title: "Logs", tool: .reduce)
+    static let reduceStructured = ToolMode(id: "reduce.structured", title: "Structured", tool: .reduce)
+
     static let allCases: [ToolMode] = [
         .rewriteClean,
         .rewriteShort,
@@ -41,7 +46,11 @@ struct ToolMode: Hashable, Codable, Identifiable {
         .replyCasual,
         .replyProfessional,
         .replyConcise,
-        .replyWarm
+        .replyWarm,
+        .reduceSafe,
+        .reduceLongText,
+        .reduceLogs,
+        .reduceStructured
     ]
 
     static func modes(for tool: ToolKind) -> [ToolMode] {
@@ -54,7 +63,13 @@ struct ToolMode: Hashable, Codable, Identifiable {
             [.extractActionItems, .extractKeyPoints, .extractEntities, .extractDates]
         case .reply:
             [.replyCasual, .replyProfessional, .replyConcise, .replyWarm]
+        case .reduce:
+            [.reduceSafe, .reduceLongText, .reduceLogs, .reduceStructured]
         }
+    }
+
+    static var promptTunableModes: [ToolMode] {
+        allCases.filter(\.tool.usesModel)
     }
 
     static func mode(for id: String) -> ToolMode? {
@@ -71,6 +86,14 @@ struct ToolMode: Hashable, Codable, Identifiable {
             "Rewrite the text as a polished workplace message. Use complete sentences, clean punctuation, and a professional but human tone."
         case ToolMode.rewriteBullet.id:
             "Turn the text into concise bullet points. Keep only the important content and remove extra wording."
+        case ToolMode.reduceSafe.id:
+            "Reduce obvious redundancy carefully. Favor readability and preserve the original structure where possible."
+        case ToolMode.reduceLongText.id:
+            "Reduce repeated sentences and filler in long pasted text. Keep the remaining content readable and easy to scan."
+        case ToolMode.reduceLogs.id:
+            "Reduce repetitive log text aggressively. Collapse repeated timestamps and repeated log structure when that lowers size."
+        case ToolMode.reduceStructured.id:
+            "Reduce repetitive structured text as much as possible with deterministic local rules."
         default:
             switch tool {
             case .rewrite:
@@ -81,6 +104,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
                 "Prefer concise, structured output and avoid inventing facts that are not present in the source text."
             case .reply:
                 "Draft replies that feel human, brief, and appropriate to the selected tone."
+            case .reduce:
+                "Reduce repetitive text before it is sent anywhere else."
             }
         }
     }
@@ -193,6 +218,32 @@ struct ToolMode: Hashable, Codable, Identifiable {
             Keep it natural and not overly long.
             Return only the reply.
             """
+        case ToolMode.reduceSafe.id:
+            """
+            Task: Reduce the text conservatively.
+            Normalize whitespace and remove only obvious duplicate content.
+            Keep the result readable.
+            Return only the reduced text.
+            """
+        case ToolMode.reduceLongText.id:
+            """
+            Task: Reduce repeated long-form text.
+            Remove repeated sentences and repeated filler where it is clearly redundant.
+            Keep the result readable.
+            Return only the reduced text.
+            """
+        case ToolMode.reduceLogs.id:
+            """
+            Task: Reduce repetitive logs.
+            Collapse repeated timestamps and repeated log structure when it lowers size.
+            Return only the reduced text.
+            """
+        case ToolMode.reduceStructured.id:
+            """
+            Task: Reduce repetitive structured text as much as possible.
+            Use deterministic substitutions when they save space.
+            Return only the reduced text.
+            """
         default:
             """
             Task: Return a concise transformed version of the text.
@@ -210,6 +261,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
             0.1
         case .reply:
             0.35
+        case .reduce:
+            0
         }
     }
 
@@ -223,6 +276,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
             120
         case .reply:
             140
+        case .reduce:
+            120
         }
     }
 
@@ -264,6 +319,14 @@ struct ToolMode: Hashable, Codable, Identifiable {
             "Wanted to follow up and see if this still works on your side."
         case ToolMode.replyWarm.id:
             "Thank you for sending this over. I appreciate the context and wanted to check in on next steps."
+        case ToolMode.reduceSafe.id:
+            "2026-04-17T05:31:10.534Z INFO Request accepted\n2026-04-17T05:31:10.534Z INFO Request accepted\n2026-04-17T05:31:10.534Z INFO Request accepted"
+        case ToolMode.reduceLongText.id:
+            "Need a launch plan with milestones, owners, dependencies, and a fallback path. Need a launch plan with milestones, owners, dependencies, and a fallback path. Output as bullets with dates and risks."
+        case ToolMode.reduceLogs.id:
+            "2026-04-17T05:31:10.534Z INFO request=42 status=ok 2026-04-17T05:31:10.534Z\n2026-04-17T05:31:10.534Z INFO request=42 status=ok 2026-04-17T05:31:10.534Z"
+        case ToolMode.reduceStructured.id:
+            "The algorithm processes messages through multiple stages. The algorithm validates input before processing. The algorithm returns a processed response."
         default:
             "Sample input"
         }
