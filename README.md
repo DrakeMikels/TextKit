@@ -93,12 +93,18 @@ Use `./script/build_and_run.sh --verify` for a build plus launch check.
 
 ## Golden eval harness
 
-The repo now includes a rewrite-focused golden eval harness so prompt changes and future model swaps can be measured against the same cases.
+The repo now includes a rewrite-focused golden eval harness with separate `dev` and `holdout` suites so prompt changes and future model swaps can be measured without relying only on the cases we tuned against.
 
-Run the full rewrite suite:
+Run the tuned `dev` rewrite suite:
 
 ```bash
 ./script/run_golden_eval.sh
+```
+
+Run the unseen `holdout` suite to check generalization:
+
+```bash
+./script/run_golden_eval.sh --suite holdout
 ```
 
 Run one mode or a narrow case slice while tuning:
@@ -116,10 +122,17 @@ By default the harness uses the repo prompt defaults with deterministic strict-s
 
 The default threshold expects the selected cases to pass, so a failing run is the signal to tune prompts, post-processing, or model choice before changing the baseline.
 
-To compare the experimental model against the same golden rewrite set:
+To measure how much the rewrite shaping layer is contributing, run the same suite with rewrite heuristics ablated:
+
+```bash
+./script/run_golden_eval.sh --suite holdout --ablation rewriteHeuristics --threshold 0.0
+```
+
+To compare the experimental model against the same rewrite suites:
 
 ```bash
 ./script/run_golden_eval.sh --model experimental
+./script/run_golden_eval.sh --model experimental --suite holdout
 ```
 
 ## Release notes

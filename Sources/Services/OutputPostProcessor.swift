@@ -1,6 +1,12 @@
 import Foundation
 
 struct OutputPostProcessor {
+    private let rewriteHeuristicsEnabled: Bool
+
+    init(rewriteHeuristicsEnabled: Bool = true) {
+        self.rewriteHeuristicsEnabled = rewriteHeuristicsEnabled
+    }
+
     func finalize(_ rawOutput: String, for request: GenerationRequest) -> String {
         let rawTrimmed = rawOutput.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleaned = clean(rawTrimmed)
@@ -14,7 +20,7 @@ struct OutputPostProcessor {
         case ToolMode.rewriteProfessional.id:
             finalized = finalizeRewriteProfessional(cleaned, sourceText: request.inputText)
         case ToolMode.rewriteBullet.id:
-            let bulletSource = shouldFallbackToSourceBullets(cleaned) || cleaned.isEmpty
+            let bulletSource = rewriteHeuristicsEnabled && (shouldFallbackToSourceBullets(cleaned) || cleaned.isEmpty)
                 ? request.inputText
                 : cleaned
             let bulletItems = normalizedBulletItems(from: bulletSource)
@@ -61,6 +67,10 @@ struct OutputPostProcessor {
     private func finalizeRewriteShort(_ cleaned: String, sourceText: String) -> String {
         let candidate = cleanupRewriteParagraph(cleaned.isEmpty ? sourceText : cleaned)
 
+        guard rewriteHeuristicsEnabled else {
+            return candidate
+        }
+
         guard shouldFallbackToShortRewrite(candidate, sourceText: sourceText) else {
             return candidate
         }
@@ -70,6 +80,10 @@ struct OutputPostProcessor {
 
     private func finalizeRewriteProfessional(_ cleaned: String, sourceText: String) -> String {
         let candidate = cleanupRewriteParagraph(cleaned.isEmpty ? sourceText : cleaned)
+
+        guard rewriteHeuristicsEnabled else {
+            return candidate
+        }
 
         guard shouldFallbackToProfessionalRewrite(candidate, sourceText: sourceText) else {
             return candidate

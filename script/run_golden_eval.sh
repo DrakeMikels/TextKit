@@ -8,6 +8,8 @@ MODEL_OPTION="stable"
 QUANT_PRESET="balanced"
 MODEL_PROFILE="balanced"
 MIN_PASS_RATE="1.0"
+SUITE="dev"
+ABLATION="none"
 MODE_FILTER=""
 CASE_FILTER=""
 USE_STRICT_PROFILE="1"
@@ -34,6 +36,14 @@ while [[ $# -gt 0 ]]; do
       MIN_PASS_RATE="${2:-}"
       shift 2
       ;;
+    --suite)
+      SUITE="${2:-}"
+      shift 2
+      ;;
+    --ablation)
+      ABLATION="${2:-}"
+      shift 2
+      ;;
     --mode)
       MODE_FILTER="${2:-}"
       shift 2
@@ -47,7 +57,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "usage: $0 [--model stable|experimental] [--quant fast|balanced|quality] [--profile fast|balanced|quality] [--threshold 0.0-1.0] [--mode rewrite.short] [--case substring] [--defaults]" >&2
+      echo "usage: $0 [--model stable|experimental] [--quant fast|balanced|quality] [--profile fast|balanced|quality] [--suite dev|holdout|all] [--ablation none|rewriteHeuristics] [--threshold 0.0-1.0] [--mode rewrite.short] [--case substring] [--defaults]" >&2
       exit 2
       ;;
   esac
@@ -80,12 +90,32 @@ case "$MODEL_PROFILE" in
     ;;
 esac
 
+case "$SUITE" in
+  dev|holdout|all)
+    ;;
+  *)
+    echo "invalid suite: $SUITE" >&2
+    exit 2
+    ;;
+esac
+
+case "$ABLATION" in
+  none|rewriteHeuristics)
+    ;;
+  *)
+    echo "invalid ablation: $ABLATION" >&2
+    exit 2
+    ;;
+esac
+
 cd "$ROOT_DIR"
 
 TEXTKIT_RUN_GOLDEN_EVAL=1 \
 TEXTKIT_EVAL_MODEL="$MODEL_OPTION" \
 TEXTKIT_EVAL_QUANT="$QUANT_PRESET" \
 TEXTKIT_EVAL_MODEL_PROFILE="$MODEL_PROFILE" \
+TEXTKIT_EVAL_SUITE="$SUITE" \
+TEXTKIT_EVAL_ABLATION="$ABLATION" \
 TEXTKIT_EVAL_MIN_PASS_RATE="$MIN_PASS_RATE" \
 TEXTKIT_EVAL_MODE="$MODE_FILTER" \
 TEXTKIT_EVAL_CASE="$CASE_FILTER" \

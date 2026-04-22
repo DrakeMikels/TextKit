@@ -1,0 +1,88 @@
+[
+  {
+    "id": "rewrite.clean.launch-review-paraphrase",
+    "modeID": "rewrite.clean",
+    "inputText": "hi john checking whether friday is still good for the launch review happy to reschedule if that helps",
+    "referenceOutput": "Hi John, checking whether Friday is still good for the launch review. Happy to reschedule if that helps.",
+    "requiredPhrases": ["john", "friday", "launch review"],
+    "forbiddenPhrases": ["- "],
+    "minReferenceSimilarity": 0.58,
+    "minimumScore": 0.78
+  },
+  {
+    "id": "rewrite.clean.docs-handoff",
+    "modeID": "rewrite.clean",
+    "inputText": "hey nina i added the updated notes to the shared folder let me know if anything is missing on your side",
+    "referenceOutput": "Hey Nina, I added the updated notes to the shared folder. Let me know if anything is missing on your side.",
+    "requiredPhrases": ["nina", "updated notes", "shared folder"],
+    "minReferenceSimilarity": 0.62,
+    "minimumScore": 0.8
+  },
+  {
+    "id": "rewrite.short.plan-alignment-paraphrase",
+    "modeID": "rewrite.short",
+    "inputText": "following up on whether we're still aligned on the plan. if not, i can trim the deck and send another pass.",
+    "referenceOutput": "Are we still aligned on the plan? If not, I can trim the deck and send another pass.",
+    "requiredPhrases": ["aligned", "plan", "trim the deck"],
+    "requiredAnyOfPhrases": ["another pass", "send another pass"],
+    "minReferenceSimilarity": 0.42,
+    "minWordReduction": 0.12,
+    "maxWords": 17,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.short.legal-approval-paraphrase",
+    "modeID": "rewrite.short",
+    "inputText": "just checking if the pricing page still needs legal approval or should i ship the latest copy today",
+    "referenceOutput": "Does the pricing page still need legal approval, or should I ship the latest copy today?",
+    "requiredPhrases": ["pricing page", "legal approval", "latest copy"],
+    "minReferenceSimilarity": 0.42,
+    "minWordReduction": 0.12,
+    "maxWords": 15,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.professional.board-update-paraphrase",
+    "modeID": "rewrite.professional",
+    "inputText": "can you send the revenue numbers by tomorrow morning so i can include them in the board memo",
+    "referenceOutput": "Hi, could you send the revenue numbers by tomorrow morning so I can include them in the board memo?",
+    "requiredPhrases": ["revenue numbers", "tomorrow morning", "board memo"],
+    "requiredAnyOfPhrases": ["could you", "please"],
+    "forbiddenPhrases": ["hey "],
+    "minReferenceSimilarity": 0.45,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.professional.contract-signoff",
+    "modeID": "rewrite.professional",
+    "inputText": "hey sam checking if you can sign off on the contract today so we can close this out",
+    "referenceOutput": "Hi Sam, could you sign off on the contract today so we can close this out?",
+    "requiredPhrases": ["sam", "sign off", "contract", "today"],
+    "requiredAnyOfPhrases": ["could you", "please"],
+    "forbiddenPhrases": ["hey "],
+    "minReferenceSimilarity": 0.48,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.bullet.customer-feedback-paraphrase",
+    "modeID": "rewrite.bullet",
+    "inputText": "Customers want faster search, clearer export instructions, and a way to pause automatic clipboard capture.",
+    "referenceOutput": "- Improve search speed\n- Clarify export instructions\n- Add a way to pause automatic clipboard capture",
+    "requiredPhrases": ["search", "export instructions", "automatic clipboard capture"],
+    "expectsBullets": true,
+    "minBulletCount": 3,
+    "minReferenceSimilarity": 0.4,
+    "minimumScore": 0.8
+  },
+  {
+    "id": "rewrite.bullet.release-readiness",
+    "modeID": "rewrite.bullet",
+    "inputText": "We still need to finalize the QA checklist, confirm who is on support rotation, and publish the release notes.",
+    "referenceOutput": "- Finalize the QA checklist\n- Confirm support rotation ownership\n- Publish the release notes",
+    "requiredPhrases": ["qa checklist", "support rotation", "release notes"],
+    "expectsBullets": true,
+    "minBulletCount": 3,
+    "minReferenceSimilarity": 0.4,
+    "minimumScore": 0.8
+  }
+]

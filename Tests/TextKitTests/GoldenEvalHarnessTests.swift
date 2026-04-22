@@ -65,6 +65,28 @@ private struct GoldenEvalCase: Decodable {
     }
 }
 
+private enum GoldenEvalSuite: String {
+    case dev
+    case holdout
+    case all
+
+    var resourceNames: [String] {
+        switch self {
+        case .dev:
+            ["golden_eval_dev_cases"]
+        case .holdout:
+            ["golden_eval_holdout_cases"]
+        case .all:
+            ["golden_eval_dev_cases", "golden_eval_holdout_cases"]
+        }
+    }
+}
+
+private enum GoldenEvalAblation: String {
+    case none
+    case rewriteHeuristics
+}
+
 private struct GoldenEvalScore {
     let value: Double
     let details: [String]
@@ -89,6 +111,7 @@ private struct GoldenEvalResult {
 }
 
 private struct GoldenEvalConfiguration {
+    let suite: GoldenEvalSuite
     let modelOption: LocalModelOption
     let quantPreset: QuantPreset
     let modelProfile: ModelProfile
@@ -96,9 +119,15 @@ private struct GoldenEvalConfiguration {
     let caseFilter: String?
     let modeFilter: String?
     let useStrictProfile: Bool
+    let ablation: GoldenEvalAblation
+
+    var rewriteHeuristicsEnabled: Bool {
+        ablation == .none
+    }
 
     static func fromEnvironment() -> GoldenEvalConfiguration {
         let environment = ProcessInfo.processInfo.environment
+        let suite = GoldenEvalSuite(rawValue: environment["TEXTKIT_EVAL_SUITE"] ?? "") ?? .dev
         let modelOption = LocalModelOption(rawValue: environment["TEXTKIT_EVAL_MODEL"] ?? "") ?? .stable
         let quantPreset = QuantPreset(rawValue: environment["TEXTKIT_EVAL_QUANT"] ?? "") ?? .balanced
         let modelProfile = ModelProfile(rawValue: environment["TEXTKIT_EVAL_MODEL_PROFILE"] ?? "") ?? .balanced
@@ -106,25 +135,31 @@ private struct GoldenEvalConfiguration {
         let caseFilter = environment["TEXTKIT_EVAL_CASE"]?.trimmingCharacters(in: .whitespacesAndNewlines)
         let modeFilter = environment["TEXTKIT_EVAL_MODE"]?.trimmingCharacters(in: .whitespacesAndNewlines)
         let useStrictProfile = environment["TEXTKIT_EVAL_USE_STRICT_PROFILE"] != "0"
+        let ablation = GoldenEvalAblation(rawValue: environment["TEXTKIT_EVAL_ABLATION"] ?? "") ?? .none
 
         return GoldenEvalConfiguration(
+            suite: suite,
             modelOption: modelOption,
             quantPreset: quantPreset,
             modelProfile: modelProfile,
             minimumPassRate: minimumPassRate,
             caseFilter: caseFilter?.isEmpty == true ? nil : caseFilter,
             modeFilter: modeFilter?.isEmpty == true ? nil : modeFilter,
-            useStrictProfile: useStrictProfile
+            useStrictProfile: useStrictProfile,
+            ablation: ablation
         )
     }
 }
 
 private struct GoldenEvalLoader {
-    func loadCases() throws -> [GoldenEvalCase] {
-        let url = try #require(Bundle.module.url(forResource: "golden_eval_cases", withExtension: "json"))
-        let data = try Data(contentsOf: url)
-        let decoder = JSONDecoder()
-        return try decoder.decode([GoldenEvalCase].self, from: data)
+    private let decoder = JSONDecoder()
+
+    func loadCases(from suite: GoldenEvalSuite) throws -> [GoldenEvalCase] {
+        try suite.resourceNames.reduce(into: [GoldenEvalCase]()) { partialResult, resourceName in
+            let url = try #require(Bundle.module.url(forResource: resourceName, withExtension: "json"))
+            let data = try Data(contentsOf: url)
+            partialResult.append(contentsOf: try decoder.decode([GoldenEvalCase].self, from: data))
+        }
     }
 }
 
@@ -305,7 +340,7 @@ private struct GoldenEvalRunner {
         let modelManager = ModelManager()
         let promptComposer = PromptComposer()
         let inferenceEngine = InferenceEngine()
-        let postProcessor = OutputPostProcessor()
+        let postProcessor = OutputPostProcessor(rewriteHeuristicsEnabled: configuration.rewriteHeuristicsEnabled)
         let scorer = GoldenEvalScorer()
         let model = modelManager.model(
             for: configuration.modelOption,
@@ -398,7 +433,7 @@ private extension Array where Element == GoldenEvalResult {
     func summaryLines(configuration: GoldenEvalConfiguration) -> [String] {
         var lines = [
             "TextKit Golden Eval",
-            "model=\(configuration.modelOption.rawValue) modelProfile=\(configuration.modelProfile.rawValue) quant=\(configuration.quantPreset.rawValue) strict=\(configuration.useStrictProfile ? "1" : "0") cases=\(count) passRate=\(String(format: "%.2f", passRate)) threshold=\(String(format: "%.2f", configuration.minimumPassRate))"
+            "suite=\(configuration.suite.rawValue) model=\(configuration.modelOption.rawValue) modelProfile=\(configuration.modelProfile.rawValue) quant=\(configuration.quantPreset.rawValue) strict=\(configuration.useStrictProfile ? "1" : "0") ablation=\(configuration.ablation.rawValue) cases=\(count) passRate=\(String(format: "%.2f", passRate)) threshold=\(String(format: "%.2f", configuration.minimumPassRate))"
         ]
 
         for result in self {
@@ -420,7 +455,7 @@ struct GoldenEvalHarnessTests {
     func scorerPassesReferenceOutput() throws {
         let loader = GoldenEvalLoader()
         let scorer = GoldenEvalScorer()
-        let testCase = try #require(loader.loadCases().first)
+        let testCase = try #require(loader.loadCases(from: .dev).first)
 
         let score = scorer.score(output: testCase.referenceOutput, for: testCase)
 
@@ -431,11 +466,21 @@ struct GoldenEvalHarnessTests {
     func scorerPenalizesMissingRequiredPhrase() throws {
         let loader = GoldenEvalLoader()
         let scorer = GoldenEvalScorer()
-        let testCase = try #require(loader.loadCases().first)
+        let testCase = try #require(loader.loadCases(from: .dev).first)
 
         let score = scorer.score(output: "This leaves out the key details.", for: testCase)
 
         #expect(score.value < testCase.minimumPassingScore)
+    }
+
+    @Test
+    func loaderReadsHoldoutSuite() throws {
+        let loader = GoldenEvalLoader()
+
+        let holdoutCases = try loader.loadCases(from: .holdout)
+
+        #expect(!holdoutCases.isEmpty)
+        #expect(holdoutCases.contains { $0.id.contains("paraphrase") })
     }
 
     @Test
@@ -447,7 +492,7 @@ struct GoldenEvalHarnessTests {
 
         let configuration = GoldenEvalConfiguration.fromEnvironment()
         let loader = GoldenEvalLoader()
-        let selectedCases = try loader.loadCases().filtered(using: configuration)
+        let selectedCases = try loader.loadCases(from: configuration.suite).filtered(using: configuration)
 
         #expect(!selectedCases.isEmpty)
 

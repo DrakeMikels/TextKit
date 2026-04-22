@@ -3,6 +3,7 @@ import Testing
 
 struct OutputPostProcessorTests {
     private let processor = OutputPostProcessor()
+    private let ablatedProcessor = OutputPostProcessor(rewriteHeuristicsEnabled: false)
 
     @Test
     func normalizesRewriteBulletOutputIntoBullets() {
@@ -176,6 +177,26 @@ struct OutputPostProcessorTests {
         )
 
         #expect(result == "Hi Sam, could you confirm the revised invoice today so we can close this out?")
+    }
+
+    @Test
+    func ablatedRewriteProcessorLeavesModelOutputMostlyUntouched() {
+        let request = GenerationRequest(
+            inputText: "can you send me the numbers by tomorrow morning so i can get this into the board update",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteProfessional)
+        )
+
+        let result = ablatedProcessor._finalizeForTests(
+            "I need the numbers by tomorrow morning so I can update the board.",
+            for: request
+        )
+
+        #expect(result == "I need the numbers by tomorrow morning so I can update the board.")
     }
 
     @Test
