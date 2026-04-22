@@ -182,7 +182,7 @@ final class SetupManager {
                 arguments: ["--cache-list"]
             )
 
-            return result.stdout.contains("\(model.repository):\(model.quantPreset.cacheTag)")
+            return result.stdout.contains("\(model.repository):\(model.cacheTag)")
                 || result.stdout.contains(model.suggestedFilename)
         } catch {
             return false

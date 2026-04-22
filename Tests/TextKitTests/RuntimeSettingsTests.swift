@@ -5,12 +5,22 @@ import Testing
 struct RuntimeSettingsTests {
     @Test
     func quantPresetMapsToExpectedModelFiles() {
-        #expect(LocalModelOption.stable.suggestedFilename(for: .fast) == "qwen2.5-0.5b-instruct-q4_k_s.gguf")
+        #expect(LocalModelOption.stable.suggestedFilename(for: .fast) == "qwen2.5-0.5b-instruct-q4_0.gguf")
         #expect(LocalModelOption.stable.suggestedFilename(for: .balanced) == "qwen2.5-0.5b-instruct-q4_k_m.gguf")
         #expect(LocalModelOption.stable.suggestedFilename(for: .quality) == "qwen2.5-0.5b-instruct-q5_k_m.gguf")
         #expect(LocalModelOption.experimental.suggestedFilename(for: .fast) == "Qwen3.5-0.8B.q4_k_s.gguf")
         #expect(LocalModelOption.experimental.suggestedFilename(for: .balanced) == "Qwen3.5-0.8B.q4_k_m.gguf")
         #expect(LocalModelOption.experimental.suggestedFilename(for: .quality) == "Qwen3.5-0.8B.q5_k_m.gguf")
+    }
+
+    @Test
+    func modelOptionsMapToExpectedCacheTags() {
+        #expect(LocalModelOption.stable.cacheTag(for: .fast) == "Q4_0")
+        #expect(LocalModelOption.stable.cacheTag(for: .balanced) == "Q4_K_M")
+        #expect(LocalModelOption.stable.cacheTag(for: .quality) == "Q5_K_M")
+        #expect(LocalModelOption.experimental.cacheTag(for: .fast) == "Q4_K_S")
+        #expect(LocalModelOption.experimental.cacheTag(for: .balanced) == "Q4_K_M")
+        #expect(LocalModelOption.experimental.cacheTag(for: .quality) == "Q5_K_M")
     }
 
     @Test

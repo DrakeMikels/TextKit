@@ -5,6 +5,7 @@ struct LocalModelDescriptor {
     let displayName: String
     let repository: String
     let suggestedFilename: String
+    let cacheTag: String
     let runtime: String
     let quantPreset: QuantPreset
     let requiresReasoningOff: Bool
@@ -13,6 +14,7 @@ struct LocalModelDescriptor {
         displayName: String,
         repository: String,
         suggestedFilename: String,
+        cacheTag: String,
         runtime: String,
         quantPreset: QuantPreset,
         requiresReasoningOff: Bool = false
@@ -20,6 +22,7 @@ struct LocalModelDescriptor {
         self.displayName = displayName
         self.repository = repository
         self.suggestedFilename = suggestedFilename
+        self.cacheTag = cacheTag
         self.runtime = runtime
         self.quantPreset = quantPreset
         self.requiresReasoningOff = requiresReasoningOff
@@ -58,6 +61,7 @@ final class ModelManager {
             displayName: modelOption.displayName,
             repository: modelOption.repository,
             suggestedFilename: modelOption.suggestedFilename(for: quantPreset),
+            cacheTag: modelOption.cacheTag(for: quantPreset),
             runtime: modelOption.runtimeName,
             quantPreset: quantPreset,
             requiresReasoningOff: modelOption.requiresReasoningOff
@@ -153,7 +157,7 @@ final class ModelManager {
                 arguments: ["--cache-list"]
             )
 
-            let modelIsCached = result.stdout.contains("\(model.repository):\(model.quantPreset.cacheTag)")
+            let modelIsCached = result.stdout.contains("\(model.repository):\(model.cacheTag)")
                 || result.stdout.contains(model.suggestedFilename)
 
             return modelIsCached ? .ready : .missingModel

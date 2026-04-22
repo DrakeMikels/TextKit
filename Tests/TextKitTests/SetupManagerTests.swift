@@ -20,6 +20,7 @@ struct SetupManagerTests {
             displayName: "Qwen2.5 0.5B Instruct",
             repository: "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
             suggestedFilename: "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            cacheTag: "Q4_K_M",
             runtime: "llama.cpp local runtime",
             quantPreset: .balanced
         )

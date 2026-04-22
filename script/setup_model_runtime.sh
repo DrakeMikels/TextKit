@@ -36,8 +36,8 @@ case "$MODEL_OPTION" in
     REASONING_ARGS=()
     case "$QUANT_PRESET" in
       fast)
-        MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_s.gguf"
-        CACHE_TAG="Q4_K_S"
+        MODEL_FILE="qwen2.5-0.5b-instruct-q4_0.gguf"
+        CACHE_TAG="Q4_0"
         ;;
       balanced)
         MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_m.gguf"
@@ -96,33 +96,50 @@ model_cached() {
 
 download_model() {
   echo "Caching $MODEL_REPO ($MODEL_FILE)..."
-  "$LLAMA_BIN" \
-    --verbosity 0 \
-    --simple-io \
-    --no-warmup \
-    "${REASONING_ARGS[@]}" \
-    -hf "$MODEL_REPO" \
-    -hff "$MODEL_FILE" \
-    -sys "$SYSTEM_PROMPT" \
-    -p "$SMOKE_PROMPT" \
-    -n 8 \
-    --temp 0 \
-    >/dev/null
+  local args=(
+    --verbosity 0
+    --simple-io
+    --no-warmup
+  )
+
+  if [[ ${#REASONING_ARGS[@]} -gt 0 ]]; then
+    args+=("${REASONING_ARGS[@]}")
+  fi
+
+  args+=(
+    -hf "$MODEL_REPO"
+    -hff "$MODEL_FILE"
+    -sys "$SYSTEM_PROMPT"
+    -p "$SMOKE_PROMPT"
+    -n 8
+    --temp 0
+  )
+
+  "$LLAMA_BIN" "${args[@]}" >/dev/null
 }
 
 smoke_test() {
-  "$LLAMA_BIN" \
-    --verbosity 0 \
-    --offline \
-    --simple-io \
-    --no-warmup \
-    "${REASONING_ARGS[@]}" \
-    -hf "$MODEL_REPO" \
-    -hff "$MODEL_FILE" \
-    -sys "$SYSTEM_PROMPT" \
-    -p "$SMOKE_PROMPT" \
-    -n 8 \
+  local args=(
+    --verbosity 0
+    --offline
+    --simple-io
+    --no-warmup
+  )
+
+  if [[ ${#REASONING_ARGS[@]} -gt 0 ]]; then
+    args+=("${REASONING_ARGS[@]}")
+  fi
+
+  args+=(
+    -hf "$MODEL_REPO"
+    -hff "$MODEL_FILE"
+    -sys "$SYSTEM_PROMPT"
+    -p "$SMOKE_PROMPT"
+    -n 8
     --temp 0
+  )
+
+  "$LLAMA_BIN" "${args[@]}"
 }
 
 case "$MODE" in

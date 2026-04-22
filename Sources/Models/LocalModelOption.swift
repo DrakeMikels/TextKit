@@ -73,7 +73,7 @@ enum LocalModelOption: String, CaseIterable, Codable, Identifiable {
         case .stable:
             switch quantPreset {
             case .fast:
-                "qwen2.5-0.5b-instruct-q4_k_s.gguf"
+                "qwen2.5-0.5b-instruct-q4_0.gguf"
             case .balanced:
                 "qwen2.5-0.5b-instruct-q4_k_m.gguf"
             case .quality:
@@ -87,6 +87,29 @@ enum LocalModelOption: String, CaseIterable, Codable, Identifiable {
                 "Qwen3.5-0.8B.q4_k_m.gguf"
             case .quality:
                 "Qwen3.5-0.8B.q5_k_m.gguf"
+            }
+        }
+    }
+
+    func cacheTag(for quantPreset: QuantPreset) -> String {
+        switch self {
+        case .stable:
+            switch quantPreset {
+            case .fast:
+                "Q4_0"
+            case .balanced:
+                "Q4_K_M"
+            case .quality:
+                "Q5_K_M"
+            }
+        case .experimental:
+            switch quantPreset {
+            case .fast:
+                "Q4_K_S"
+            case .balanced:
+                "Q4_K_M"
+            case .quality:
+                "Q5_K_M"
             }
         }
     }
