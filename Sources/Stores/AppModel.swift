@@ -30,6 +30,7 @@ final class AppModel {
     var outputText = "Copy text anywhere on macOS to precompute a result."
     var statusText = "On-device"
     var reductionStats: ReductionStats?
+    var showInitialSetupPrompt = false
 
     init(
         settingsStore: SettingsStore = SettingsStore(),
@@ -68,6 +69,7 @@ final class AppModel {
                 for: self.settingsStore.localModelOption,
                 quantPreset: self.settingsStore.quantPreset
             )
+            self.armInitialSetupPromptIfNeeded()
             self.statusText = self.defaultStatusText()
         }
     }
@@ -488,6 +490,10 @@ final class AppModel {
         }
     }
 
+    func dismissInitialSetupPrompt() {
+        showInitialSetupPrompt = false
+    }
+
     private func startClipboardMonitoring() {
         clipboardMonitor.start { [weak self] clipboardText in
             guard let self else { return }
@@ -551,5 +557,17 @@ final class AppModel {
 
     private func defaultStatusText() -> String {
         selectedTool == .reduce ? "Ready to reduce locally" : modelManager.statusSummary
+    }
+
+    private func armInitialSetupPromptIfNeeded() {
+        guard !settingsStore.hasShownInitialSetupPrompt else { return }
+
+        switch modelManager.runtimeState {
+        case .missingRuntime, .missingModel:
+            showInitialSetupPrompt = true
+            settingsStore.hasShownInitialSetupPrompt = true
+        default:
+            break
+        }
     }
 }

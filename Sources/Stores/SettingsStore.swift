@@ -15,6 +15,7 @@ final class SettingsStore {
         static let warmCacheSeconds = "settings.warmCacheSeconds"
         static let strictModeEnabled = "settings.strictModeEnabled"
         static let promptProfile = "settings.promptProfile"
+        static let hasShownInitialSetupPrompt = "settings.hasShownInitialSetupPrompt"
     }
 
     private let defaults: UserDefaults
@@ -65,6 +66,10 @@ final class SettingsStore {
         }
     }
 
+    var hasShownInitialSetupPrompt: Bool {
+        didSet { defaults.set(hasShownInitialSetupPrompt, forKey: Keys.hasShownInitialSetupPrompt) }
+    }
+
     private var modeConfigurations: [String: ModePromptConfiguration] {
         didSet {
             persistPromptProfile()
@@ -82,6 +87,7 @@ final class SettingsStore {
         self.defaultFallbackTool = ToolKind(rawValue: resolvedDefaults.string(forKey: Keys.defaultFallbackTool) ?? "") ?? .rewrite
         self.warmCacheSeconds = resolvedDefaults.object(forKey: Keys.warmCacheSeconds) as? Double ?? 45
         self.strictModeEnabled = resolvedDefaults.object(forKey: Keys.strictModeEnabled) as? Bool ?? false
+        self.hasShownInitialSetupPrompt = resolvedDefaults.object(forKey: Keys.hasShownInitialSetupPrompt) as? Bool ?? false
         self.modeConfigurations = SettingsStore.loadPromptProfile(from: resolvedDefaults)
     }
 

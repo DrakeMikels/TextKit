@@ -112,4 +112,21 @@ struct RuntimeSettingsTests {
                 == .default(for: .rewriteProfessional)
         )
     }
+
+    @Test
+    @MainActor
+    func settingsStorePersistsInitialSetupPromptFlag() {
+        let suiteName = "TextKitTests.InitialSetupPrompt.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = SettingsStore(defaults: defaults)
+        #expect(store.hasShownInitialSetupPrompt == false)
+
+        store.hasShownInitialSetupPrompt = true
+
+        let restoredStore = SettingsStore(defaults: defaults)
+        #expect(restoredStore.hasShownInitialSetupPrompt == true)
+    }
 }
