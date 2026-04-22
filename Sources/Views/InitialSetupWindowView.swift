@@ -27,27 +27,30 @@ struct InitialSetupWindowView: View {
             )
 
             HStack {
-                Button("Set Up Later") {
+                Button(primarySecondaryActionTitle) {
                     onDismiss()
                 }
+                .disabled(appModel.setupManager.isRunning)
 
                 Spacer()
 
-                Button("Open Full Settings") {
-                    openSettingsWindow()
+                if setupIsComplete {
+                    Button("Start Using TextKit") {
+                        onDismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.defaultAction)
+                } else {
+                    Button("Open Full Settings") {
+                        openSettingsWindow()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appModel.setupManager.isRunning)
                 }
-                .buttonStyle(.bordered)
             }
         }
         .padding(24)
         .frame(width: 620)
-        .onChange(of: appModel.modelManager.runtimeState) { _, runtimeState in
-            guard !appModel.setupManager.isRunning else { return }
-
-            if case .ready = runtimeState {
-                onDismiss()
-            }
-        }
     }
 
     private var quickStartCard: some View {
@@ -65,9 +68,9 @@ struct InitialSetupWindowView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(appModel.setupManager.isRunning)
+                .disabled(appModel.setupManager.isRunning || setupIsComplete)
 
-                Text("Or choose a different model below.")
+                Text(quickStartCaption)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -86,6 +89,26 @@ struct InitialSetupWindowView: View {
     private func openSettingsWindow() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private var setupIsComplete: Bool {
+        if case .ready = appModel.modelManager.runtimeState {
+            return true
+        }
+
+        return false
+    }
+
+    private var primarySecondaryActionTitle: String {
+        setupIsComplete ? "Close" : "Set Up Later"
+    }
+
+    private var quickStartCaption: String {
+        if setupIsComplete {
+            return "Setup is complete. You can start using TextKit now."
+        }
+
+        return "Downloads from Hugging Face and installs locally on this Mac."
     }
 
     private func startRecommendedSetup() {
