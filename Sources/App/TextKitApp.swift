@@ -2,7 +2,20 @@ import SwiftUI
 
 @main
 struct TextKitApp: App {
-    @State private var appModel = AppModel()
+    @State private var appModel: AppModel
+    private let initialSetupWindowController: InitialSetupWindowController
+
+    init() {
+        let appModel = AppModel()
+        let initialSetupWindowController = InitialSetupWindowController()
+        initialSetupWindowController.appModel = appModel
+        appModel.configureInitialSetupWindowPresentation { [weak initialSetupWindowController] in
+            initialSetupWindowController?.present()
+        }
+
+        self._appModel = State(initialValue: appModel)
+        self.initialSetupWindowController = initialSetupWindowController
+    }
 
     var body: some Scene {
         MenuBarExtra("TextKit", systemImage: "text.quote") {

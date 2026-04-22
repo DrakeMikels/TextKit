@@ -3,7 +3,6 @@ import SwiftUI
 
 struct ContentView: View {
     @Bindable var appModel: AppModel
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -33,15 +32,6 @@ struct ContentView: View {
         }
         .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
             appModel.handleRuntimeSelectionChange()
-        }
-        .onAppear {
-            appModel.handlePopoverAppear()
-        }
-        .onDisappear {
-            appModel.handlePopoverDisappear()
-        }
-        .sheet(isPresented: $appModel.showInitialSetupPrompt) {
-            initialSetupPrompt
         }
     }
 
@@ -235,48 +225,5 @@ struct ContentView: View {
             }
             .help("Open settings")
         }
-    }
-
-    private var initialSetupPrompt: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(Color.accentColor)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Set Up TextKit")
-                        .font(.title3.weight(.semibold))
-
-                    Text("Before first use, choose a local model to download. Settings includes the guided setup flow for both the stable and experimental options.")
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Choose your starting model in Settings", systemImage: "gearshape")
-                Label("Download the standard or experimental model", systemImage: "square.and.arrow.down")
-                Label("After setup, TextKit runs locally on this Mac", systemImage: "lock.shield")
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-
-            HStack {
-                Button("Not Now") {
-                    appModel.dismissInitialSetupPrompt()
-                }
-
-                Spacer()
-
-                Button("Open Settings") {
-                    appModel.dismissInitialSetupPrompt()
-                    openSettings()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(width: 440)
     }
 }

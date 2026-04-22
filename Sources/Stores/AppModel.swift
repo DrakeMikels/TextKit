@@ -21,8 +21,8 @@ final class AppModel {
     private var debounceTask: Task<Void, Never>?
     private var generationRevision = 0
     private var lastReductionFingerprint: String?
-    private var pendingInitialSetupPrompt = false
-    private var isPopoverVisible = false
+    private var requestInitialSetupWindowPresentation: (() -> Void)?
+    private var pendingInitialSetupWindowRequest = false
 
     var inputText: String = ""
     var refineInstruction: String = ""
@@ -32,7 +32,6 @@ final class AppModel {
     var outputText = "Copy text anywhere on macOS to precompute a result."
     var statusText = "On-device"
     var reductionStats: ReductionStats?
-    var showInitialSetupPrompt = false
 
     init(
         settingsStore: SettingsStore = SettingsStore(),
@@ -492,18 +491,9 @@ final class AppModel {
         }
     }
 
-    func dismissInitialSetupPrompt() {
-        showInitialSetupPrompt = false
-        pendingInitialSetupPrompt = false
-    }
-
-    func handlePopoverAppear() {
-        isPopoverVisible = true
-        presentInitialSetupPromptIfNeeded()
-    }
-
-    func handlePopoverDisappear() {
-        isPopoverVisible = false
+    func configureInitialSetupWindowPresentation(_ handler: @escaping () -> Void) {
+        requestInitialSetupWindowPresentation = handler
+        presentInitialSetupWindowIfNeeded()
     }
 
     private func startClipboardMonitoring() {
@@ -576,23 +566,18 @@ final class AppModel {
 
         switch modelManager.runtimeState {
         case .missingRuntime, .missingModel:
-            pendingInitialSetupPrompt = true
+            pendingInitialSetupWindowRequest = true
             settingsStore.hasShownInitialSetupPrompt = true
-            presentInitialSetupPromptIfNeeded()
+            presentInitialSetupWindowIfNeeded()
         default:
             break
         }
     }
 
-    private func presentInitialSetupPromptIfNeeded() {
-        guard pendingInitialSetupPrompt, isPopoverVisible, !showInitialSetupPrompt else { return }
+    private func presentInitialSetupWindowIfNeeded() {
+        guard pendingInitialSetupWindowRequest, let requestInitialSetupWindowPresentation else { return }
 
-        pendingInitialSetupPrompt = false
-
-        Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self, self.isPopoverVisible else { return }
-            self.showInitialSetupPrompt = true
-        }
+        pendingInitialSetupWindowRequest = false
+        requestInitialSetupWindowPresentation()
     }
 }
