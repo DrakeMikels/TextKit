@@ -23,8 +23,31 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Refine")
                     .font(.subheadline.weight(.semibold))
-                TextField("Optional instruction for the current tool", text: $appModel.refineInstruction)
-                    .textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    TextField("Refine the current result", text: $appModel.refineDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            appModel.submitRefine()
+                        }
+
+                    Button {
+                        appModel.submitRefine()
+                    } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 28, height: 28)
+                            .background(appModel.canSubmitRefine ? Color.accentColor : Color.secondary.opacity(0.18))
+                            .foregroundStyle(appModel.canSubmitRefine ? Color.white : Color.secondary)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!appModel.canSubmitRefine)
+                    .help("Apply refine instruction")
+                }
+
+                Text(appModel.hasPendingRefineChanges ? "Press Return or click send to apply the refine instruction." : "Refine applies to the current clipboard text only.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -68,9 +91,6 @@ struct ContentView: View {
         .padding(16)
         .frame(width: 480)
         .onChange(of: appModel.inputText) { _, _ in
-            appModel.scheduleRegeneration()
-        }
-        .onChange(of: appModel.refineInstruction) { _, _ in
             appModel.scheduleRegeneration()
         }
         .onChange(of: appModel.settingsStore.promptProfileRevision) { _, _ in

@@ -19,6 +19,7 @@ final class AppModel {
 
     var inputText: String = ""
     var refineInstruction: String = ""
+    var refineDraft: String = ""
     var selectedTool: ToolKind
     var selectedMode: ToolMode
     var outputText = "Copy text anywhere on macOS to precompute a result."
@@ -61,6 +62,15 @@ final class AppModel {
         "\(modelManager.defaultModel.displayName) · \(settingsStore.modelProfile.title)"
     }
 
+    var hasPendingRefineChanges: Bool {
+        refineDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            != refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var canSubmitRefine: Bool {
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasPendingRefineChanges
+    }
+
     func selectTool(_ tool: ToolKind) {
         selectedTool = tool
         if selectedMode.tool != tool {
@@ -89,6 +99,16 @@ final class AppModel {
             await self.modelManager.refreshAvailability()
             self.statusText = self.modelManager.statusSummary
         }
+    }
+
+    func submitRefine() {
+        let trimmedDraft = refineDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedDraft != refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return
+        }
+
+        refineInstruction = trimmedDraft
+        regenerateNow()
     }
 
     func regenerateNow() {
@@ -193,6 +213,8 @@ final class AppModel {
 
             self.cacheStore.invalidateAll()
             self.inputText = clipboardText
+            self.refineInstruction = ""
+            self.refineDraft = ""
 
             let routedTool = self.routeEngine.route(
                 clipboardText,
