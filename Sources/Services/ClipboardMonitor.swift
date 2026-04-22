@@ -3,6 +3,9 @@ import Foundation
 
 @MainActor
 final class ClipboardMonitor: NSObject {
+    static let sourcePasteboardType = NSPasteboard.PasteboardType("com.mikedrake.TextKit.source")
+    static let sourcePasteboardValue = "generated-output"
+
     private let pasteboard: NSPasteboard
     private let pollInterval: TimeInterval
 
@@ -42,12 +45,27 @@ final class ClipboardMonitor: NSObject {
         onClipboardText = nil
     }
 
+    static func makeManagedPasteboardItem(text: String) -> NSPasteboardItem {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        item.setString(sourcePasteboardValue, forType: sourcePasteboardType)
+        return item
+    }
+
+    static func isManagedPasteboardItem(_ item: NSPasteboardItem) -> Bool {
+        item.string(forType: sourcePasteboardType) == sourcePasteboardValue
+    }
+
     @objc
     private func pollPasteboard() {
         let currentChangeCount = pasteboard.changeCount
         guard currentChangeCount != lastChangeCount else { return }
 
         lastChangeCount = currentChangeCount
+
+        if pasteboard.pasteboardItems?.contains(where: Self.isManagedPasteboardItem) == true {
+            return
+        }
 
         guard let clipboardText = pasteboard.string(forType: .string)?
             .trimmingCharacters(in: .whitespacesAndNewlines),

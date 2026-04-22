@@ -202,7 +202,7 @@ final class AppModel {
     func copyOutputToClipboard() {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(outputText, forType: .string)
+        pasteboard.writeObjects([ClipboardMonitor.makeManagedPasteboardItem(text: outputText)])
         statusText = "\(modelManager.statusSummary) · copied"
     }
 
@@ -210,6 +210,7 @@ final class AppModel {
         clipboardMonitor.start { [weak self] clipboardText in
             guard let self else { return }
             guard self.settingsStore.autoClipEnabled else { return }
+            guard !self.shouldIgnoreClipboardText(clipboardText) else { return }
 
             self.cacheStore.invalidateAll()
             self.inputText = clipboardText
@@ -225,5 +226,10 @@ final class AppModel {
             self.selectedMode = routedTool.defaultMode
             self.regenerateNow()
         }
+    }
+
+    private func shouldIgnoreClipboardText(_ clipboardText: String) -> Bool {
+        let trimmedOutput = outputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return NSApplication.shared.isActive && !trimmedOutput.isEmpty && clipboardText == trimmedOutput
     }
 }
