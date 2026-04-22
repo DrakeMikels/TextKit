@@ -6,7 +6,7 @@ struct ToolTabBar: View {
 
     @Namespace private var selectionNamespace
 
-    private let rowSpacing: CGFloat = 10
+    private let rowSpacing: CGFloat = 8
     private let rowTools = [
         Array(ToolKind.allCases.prefix(3)),
         Array(ToolKind.allCases.dropFirst(3))
@@ -22,7 +22,7 @@ struct ToolTabBar: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(height: 96)
+        .frame(height: 84)
     }
 
     private func toolRow(_ tools: [ToolKind], buttonWidth: CGFloat, centered: Bool) -> some View {
@@ -44,7 +44,7 @@ struct ToolTabBar: View {
     }
 
     private func toolButton(for tool: ToolKind) -> some View {
-        let accent = accentColor(for: tool)
+        let accent = ToolTintPalette.accent(for: tool)
         let isSelected = tool == selectedTool
 
         return Button {
@@ -52,11 +52,11 @@ struct ToolTabBar: View {
                 onSelect(tool)
             }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Image(systemName: tool.systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isSelected ? accent : accent.opacity(0.9))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
                     .background(
                         Circle()
                             .fill(accent.opacity(isSelected ? 0.22 : 0.12))
@@ -70,7 +70,7 @@ struct ToolTabBar: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(alignment: .center) {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -114,7 +114,7 @@ struct ToolTabBar: View {
     }
 
     private func backgroundColors(for tool: ToolKind, isSelected: Bool) -> [Color] {
-        let accent = accentColor(for: tool)
+        let accent = ToolTintPalette.accent(for: tool)
         if isSelected {
             return [
                 accent.opacity(0.24),
@@ -126,22 +126,5 @@ struct ToolTabBar: View {
             Color.white.opacity(0.06),
             accent.opacity(0.06)
         ]
-    }
-
-    private func accentColor(for tool: ToolKind) -> Color {
-        switch tool {
-        case .rewrite:
-            Color(red: 0.33, green: 0.72, blue: 1.0)
-        case .prompt:
-            Color(red: 0.29, green: 0.82, blue: 0.74)
-        case .extract:
-            Color(red: 0.99, green: 0.74, blue: 0.38)
-        case .reply:
-            Color(red: 0.55, green: 0.76, blue: 0.47)
-        case .reduce:
-            Color(red: 0.76, green: 0.66, blue: 1.0)
-        case .summarize:
-            Color(red: 0.96, green: 0.53, blue: 0.67)
-        }
     }
 }

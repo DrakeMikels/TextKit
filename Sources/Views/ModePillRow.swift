@@ -6,6 +6,8 @@ struct ModePillRow: View {
     let onSelect: (ToolMode) -> Void
 
     var body: some View {
+        let accent = ToolTintPalette.accent(for: selectedMode.tool)
+
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(modes) { mode in
@@ -13,10 +15,33 @@ struct ModePillRow: View {
                         onSelect(mode)
                     }
                     .buttonStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(mode == selectedMode ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08))
-                    .clipShape(Capsule())
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(mode == selectedMode ? .primary : accent.opacity(0.92))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background {
+                        Capsule(style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay {
+                                Capsule(style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: mode == selectedMode
+                                                ? [accent.opacity(0.24), accent.opacity(0.14)]
+                                                : [accent.opacity(0.10), accent.opacity(0.05)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            }
+                            .overlay {
+                                Capsule(style: .continuous)
+                                    .strokeBorder(
+                                        mode == selectedMode ? accent.opacity(0.48) : accent.opacity(0.18),
+                                        lineWidth: mode == selectedMode ? 1.1 : 0.8
+                                    )
+                            }
+                    }
                 }
             }
         }
