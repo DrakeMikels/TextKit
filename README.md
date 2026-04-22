@@ -45,6 +45,20 @@ That command:
 
 After setup, the app uses `--offline` so normal inference does not depend on network access.
 
+## Advanced prompt controls
+
+Settings now includes an advanced profile editor for every tool mode:
+
+- locked base system prompt
+- editable mode-specific system instruction
+- editable task template
+- per-mode temperature, max tokens, and seed
+- strict mode toggle for more repeatable output
+- prompt preview with sample input
+- reset, import, and export actions for prompt profiles
+
+The input and output panes in the popover also resize dynamically based on the current clipboard text and generated response.
+
 ## Build
 
 ```bash

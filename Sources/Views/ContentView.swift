@@ -12,7 +12,11 @@ struct ContentView: View {
             GroupBox("Input") {
                 TextEditor(text: $appModel.inputText)
                     .font(.body)
-                    .frame(minHeight: 110)
+                    .frame(height: TextSizing.editorHeight(
+                        for: appModel.inputText,
+                        minHeight: 110,
+                        maxHeight: 260
+                    ))
                     .scrollContentBackground(.hidden)
             }
 
@@ -40,7 +44,11 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     }
-                    .frame(minHeight: 120)
+                    .frame(height: TextSizing.editorHeight(
+                        for: appModel.outputText,
+                        minHeight: 120,
+                        maxHeight: 300
+                    ))
 
                     HStack {
                         Button("Copy Result") {
@@ -63,6 +71,9 @@ struct ContentView: View {
             appModel.scheduleRegeneration()
         }
         .onChange(of: appModel.refineInstruction) { _, _ in
+            appModel.scheduleRegeneration()
+        }
+        .onChange(of: appModel.settingsStore.promptProfileRevision) { _, _ in
             appModel.scheduleRegeneration()
         }
     }

@@ -78,35 +78,10 @@ struct InferenceEngine {
             "-hff", model.suggestedFilename,
             "-sys", prompt.systemPrompt,
             "-p", prompt.userPrompt,
-            "-n", String(maxTokens(for: request)),
-            "--temp", String(format: "%.2f", temperature(for: request))
+            "-n", String(request.promptConfiguration.maxTokens),
+            "--temp", String(format: "%.2f", request.promptConfiguration.temperature),
+            "-s", String(request.promptConfiguration.seed)
         ]
-    }
-
-    private func temperature(for request: GenerationRequest) -> Double {
-        switch request.tool {
-        case .rewrite:
-            return 0.2
-        case .prompt:
-            return 0.35
-        case .extract:
-            return 0.1
-        case .reply:
-            return 0.35
-        }
-    }
-
-    private func maxTokens(for request: GenerationRequest) -> Int {
-        switch request.tool {
-        case .rewrite:
-            return 120
-        case .prompt:
-            return 180
-        case .extract:
-            return 120
-        case .reply:
-            return 140
-        }
     }
 
     private func extractAssistantResponse(from stdout: String) -> String {

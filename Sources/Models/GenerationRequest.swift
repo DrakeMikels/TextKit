@@ -7,4 +7,5 @@ struct GenerationRequest {
     let mode: ToolMode
     let modelProfile: ModelProfile
     let quantPreset: QuantPreset
+    let promptConfiguration: ModePromptConfiguration
 }

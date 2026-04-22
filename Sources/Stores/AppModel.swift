@@ -107,7 +107,8 @@ final class AppModel {
             tool: selectedTool,
             mode: selectedMode,
             modelProfile: settingsStore.modelProfile,
-            quantPreset: settingsStore.quantPreset
+            quantPreset: settingsStore.quantPreset,
+            promptConfiguration: settingsStore.promptConfiguration(for: selectedMode)
         )
 
         let key = CacheKey(
@@ -116,7 +117,8 @@ final class AppModel {
             modeID: request.mode.id,
             modelProfile: request.modelProfile,
             quantPreset: request.quantPreset,
-            refineInstruction: request.refineInstruction
+            refineInstruction: request.refineInstruction,
+            configurationFingerprint: settingsStore.configurationFingerprint(for: selectedMode)
         )
 
         if let cached = cacheStore.output(for: key) {

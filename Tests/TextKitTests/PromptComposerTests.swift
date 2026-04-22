@@ -11,12 +11,14 @@ struct PromptComposerTests {
             tool: .reply,
             mode: .replyProfessional,
             modelProfile: .balanced,
-            quantPreset: .balanced
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .replyProfessional)
         )
 
         let prompt = composer.compose(for: request)
 
         #expect(prompt.systemPrompt.contains("You are TextKit"))
+        #expect(prompt.systemPrompt.contains("Draft replies that feel human"))
         #expect(prompt.userPrompt.contains("Refine Instruction:\nKeep it under 50 words."))
         #expect(prompt.userPrompt.contains("Input:\nDraft a better reply."))
     }

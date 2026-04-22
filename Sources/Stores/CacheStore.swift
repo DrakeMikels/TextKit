@@ -7,6 +7,7 @@ struct CacheKey: Hashable {
     let modelProfile: ModelProfile
     let quantPreset: QuantPreset
     let refineInstruction: String
+    let configurationFingerprint: String
 }
 
 final class CacheStore {
