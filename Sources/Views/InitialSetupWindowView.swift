@@ -17,6 +17,8 @@ struct InitialSetupWindowView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            quickStartCard
+
             SetupStatusView(
                 settingsStore: appModel.settingsStore,
                 modelManager: appModel.modelManager,
@@ -48,8 +50,48 @@ struct InitialSetupWindowView: View {
         }
     }
 
+    private var quickStartCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recommended Setup")
+                .font(.headline)
+
+            Text("Start with Qwen2.5 0.5B on the Balanced size. This is the fastest and most stable first setup for most Macs.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Button("Start Recommended Setup") {
+                    startRecommendedSetup()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(appModel.setupManager.isRunning)
+
+                Text("Or choose a different model below.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(18)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.8)
+                }
+        }
+    }
+
     private func openSettingsWindow() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func startRecommendedSetup() {
+        appModel.settingsStore.localModelOption = .stable
+        appModel.settingsStore.quantPreset = .balanced
+        appModel.setupManager.resetFailure()
+        appModel.startSetup()
     }
 }
