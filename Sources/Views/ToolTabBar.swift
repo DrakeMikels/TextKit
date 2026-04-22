@@ -18,7 +18,7 @@ struct ToolTabBar: View {
 
             VStack(spacing: rowSpacing) {
                 toolRow(rowTools[0], buttonWidth: buttonWidth, centered: false)
-                toolRow(rowTools[1], buttonWidth: buttonWidth, centered: true)
+                toolRow(rowTools[1], buttonWidth: buttonWidth, centered: rowTools[1].count < 3)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -140,6 +140,8 @@ struct ToolTabBar: View {
             Color(red: 0.55, green: 0.76, blue: 0.47)
         case .reduce:
             Color(red: 0.76, green: 0.66, blue: 1.0)
+        case .summarize:
+            Color(red: 0.96, green: 0.53, blue: 0.67)
         }
     }
 }

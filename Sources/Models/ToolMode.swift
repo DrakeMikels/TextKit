@@ -30,6 +30,11 @@ struct ToolMode: Hashable, Codable, Identifiable {
     static let reduceLogs = ToolMode(id: "reduce.logs", title: "Logs", tool: .reduce)
     static let reduceStructured = ToolMode(id: "reduce.structured", title: "Structured", tool: .reduce)
 
+    static let summarizeBrief = ToolMode(id: "summarize.brief", title: "Brief", tool: .summarize)
+    static let summarizeBalanced = ToolMode(id: "summarize.balanced", title: "Balanced", tool: .summarize)
+    static let summarizeDetailed = ToolMode(id: "summarize.detailed", title: "Detailed", tool: .summarize)
+    static let summarizeExecutive = ToolMode(id: "summarize.executive", title: "Executive", tool: .summarize)
+
     static let allCases: [ToolMode] = [
         .rewriteClean,
         .rewriteShort,
@@ -50,7 +55,11 @@ struct ToolMode: Hashable, Codable, Identifiable {
         .reduceSafe,
         .reduceLongText,
         .reduceLogs,
-        .reduceStructured
+        .reduceStructured,
+        .summarizeBrief,
+        .summarizeBalanced,
+        .summarizeDetailed,
+        .summarizeExecutive
     ]
 
     static func modes(for tool: ToolKind) -> [ToolMode] {
@@ -65,6 +74,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
             [.replyCasual, .replyProfessional, .replyConcise, .replyWarm]
         case .reduce:
             [.reduceSafe, .reduceLongText, .reduceLogs, .reduceStructured]
+        case .summarize:
+            [.summarizeBrief, .summarizeBalanced, .summarizeDetailed, .summarizeExecutive]
         }
     }
 
@@ -94,6 +105,14 @@ struct ToolMode: Hashable, Codable, Identifiable {
             "Reduce repetitive log text aggressively. Collapse repeated timestamps and repeated log structure when that lowers size."
         case ToolMode.reduceStructured.id:
             "Reduce repetitive structured text as much as possible with deterministic local rules."
+        case ToolMode.summarizeBrief.id:
+            "Summarize the text in one or two direct sentences. Keep only the main point and most important outcome."
+        case ToolMode.summarizeBalanced.id:
+            "Summarize the text in a short readable paragraph. Preserve the main idea, decisions, and next steps."
+        case ToolMode.summarizeDetailed.id:
+            "Summarize the text with enough context to understand what happened, why it matters, and what comes next."
+        case ToolMode.summarizeExecutive.id:
+            "Summarize the text for a decision-maker who wants the situation, risk, and next action quickly."
         default:
             switch tool {
             case .rewrite:
@@ -106,6 +125,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
                 "Draft replies that feel human, brief, and appropriate to the selected tone."
             case .reduce:
                 "Reduce repetitive text before it is sent anywhere else."
+            case .summarize:
+                "Summarize copied text clearly without adding commentary outside the source."
             }
         }
     }
@@ -244,6 +265,34 @@ struct ToolMode: Hashable, Codable, Identifiable {
             Use deterministic substitutions when they save space.
             Return only the reduced text.
             """
+        case ToolMode.summarizeBrief.id:
+            """
+            Task: Summarize the text very briefly.
+            Keep only the main point and the most important outcome.
+            Use one or two sentences.
+            Return only the summary.
+            """
+        case ToolMode.summarizeBalanced.id:
+            """
+            Task: Summarize the text in a short paragraph.
+            Preserve the core idea, decisions, and immediate next steps.
+            Keep it readable and concise.
+            Return only the summary.
+            """
+        case ToolMode.summarizeDetailed.id:
+            """
+            Task: Summarize the text with more context.
+            Include the main idea, relevant supporting detail, and what happens next.
+            Keep it compact but informative.
+            Return only the summary.
+            """
+        case ToolMode.summarizeExecutive.id:
+            """
+            Task: Summarize the text for an executive readout.
+            Emphasize the situation, key risk or decision, and next action.
+            Keep it concise and easy to skim.
+            Return only the summary.
+            """
         default:
             """
             Task: Return a concise transformed version of the text.
@@ -263,6 +312,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
             0.35
         case .reduce:
             0
+        case .summarize:
+            0.2
         }
     }
 
@@ -278,6 +329,8 @@ struct ToolMode: Hashable, Codable, Identifiable {
             140
         case .reduce:
             120
+        case .summarize:
+            160
         }
     }
 
@@ -327,6 +380,14 @@ struct ToolMode: Hashable, Codable, Identifiable {
             "2026-04-17T05:31:10.534Z INFO request=42 status=ok 2026-04-17T05:31:10.534Z\n2026-04-17T05:31:10.534Z INFO request=42 status=ok 2026-04-17T05:31:10.534Z"
         case ToolMode.reduceStructured.id:
             "The algorithm processes messages through multiple stages. The algorithm validates input before processing. The algorithm returns a processed response."
+        case ToolMode.summarizeBrief.id:
+            "We shifted the release by one week after legal found issues in the launch email, but the install flow and onboarding copy are otherwise ready to ship."
+        case ToolMode.summarizeBalanced.id:
+            "The team agreed to keep the menu bar app lightweight, guide users through first-run model download, and delay the Homebrew cask until the packaged release is stable."
+        case ToolMode.summarizeDetailed.id:
+            "TextKit now runs local Qwen models on-device, includes a setup flow for downloading the model, and has an eval harness for rewrite behavior. The next step is to keep refining the tool set while making first-run setup and runtime behavior more predictable."
+        case ToolMode.summarizeExecutive.id:
+            "The current build is functional and local-first, but the main open work is reducing setup friction and tightening output consistency so the release feels reliable for broader users."
         default:
             "Sample input"
         }

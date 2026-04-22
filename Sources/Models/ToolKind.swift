@@ -6,6 +6,7 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     case extract
     case reply
     case reduce
+    case summarize
 
     var id: String { rawValue }
 
@@ -21,6 +22,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "Reply"
         case .reduce:
             "Reduce"
+        case .summarize:
+            "Summarize"
         }
     }
 
@@ -36,6 +39,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "arrowshape.turn.up.left"
         case .reduce:
             "arrow.down.right.and.arrow.up.left"
+        case .summarize:
+            "text.alignleft"
         }
     }
 
@@ -51,6 +56,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
             "Draft a response to copied text."
         case .reduce:
             "Shrink repetitive logs or long text."
+        case .summarize:
+            "Summarize copied text."
         }
     }
 
@@ -70,6 +77,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .reduce:
             .reduceStructured
+        case .summarize:
+            .summarizeBalanced
         default:
             modes[0]
         }

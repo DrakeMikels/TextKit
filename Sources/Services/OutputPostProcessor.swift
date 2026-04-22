@@ -25,6 +25,11 @@ struct OutputPostProcessor {
                 : cleaned
             let bulletItems = normalizedBulletItems(from: bulletSource)
             finalized = bulletItems.isEmpty ? rawTrimmed : bulletList(from: bulletItems)
+        case ToolMode.summarizeBrief.id,
+             ToolMode.summarizeBalanced.id,
+             ToolMode.summarizeDetailed.id,
+             ToolMode.summarizeExecutive.id:
+            finalized = finalizeSummary(cleaned, sourceText: request.inputText, mode: request.mode)
         case ToolMode.promptBalanced.id,
              ToolMode.promptDetailed.id,
              ToolMode.promptConstrained.id,
@@ -162,6 +167,34 @@ struct OutputPostProcessor {
         return reply
     }
 
+    private func finalizeSummary(_ cleaned: String, sourceText: String, mode: ToolMode) -> String {
+        let fallback = heuristicSummary(from: sourceText, mode: mode)
+        let seed = cleaned.isEmpty ? fallback : cleaned
+        let strippedSeed = stripWrappingQuotes(from: seed)
+        let bulletItems = normalizedBulletItems(from: strippedSeed)
+        let hasExplicitBulletShape = strippedSeed.contains("\n")
+            || strippedSeed.hasPrefix("- ")
+            || strippedSeed.hasPrefix("• ")
+            || strippedSeed.range(of: #"^\d+[.)]\s+"#, options: .regularExpression) != nil
+        let summary: String
+
+        if hasExplicitBulletShape, !bulletItems.isEmpty {
+            summary = proseSummary(from: bulletItems, mode: mode)
+        } else {
+            summary = normalizedSummary(normalizeParagraph(strippedSeed), mode: mode)
+        }
+
+        guard rewriteHeuristicsEnabled else {
+            return summary
+        }
+
+        guard !shouldFallbackToSummary(summary, sourceText: sourceText) else {
+            return fallback
+        }
+
+        return summary
+    }
+
     private func cleanupRewriteParagraph(_ text: String) -> String {
         var cleaned = normalizeParagraph(stripWrappingQuotes(from: text))
         cleaned = cleaned.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
@@ -220,6 +253,22 @@ struct OutputPostProcessor {
         )
 
         return normalizedCandidate == normalizedSource || stillSoundsCasual || candidateLostRequestShape
+    }
+
+    private func shouldFallbackToSummary(_ candidate: String, sourceText: String) -> Bool {
+        let sourceWordCount = wordCount(in: sourceText)
+        let candidateWordCount = wordCount(in: candidate)
+        let normalizedSource = normalizedComparableText(sourceText)
+        let normalizedCandidate = normalizedComparableText(candidate)
+        let isTooCloseToSource = sourceWordCount >= 32 && (
+            normalizedCandidate == normalizedSource
+                || candidateWordCount >= max(18, Int(Double(sourceWordCount) * 0.9))
+                || tokenSimilarity(between: candidate, and: sourceText) >= 0.94
+        )
+        let hasMetaLead = candidate.lowercased().hasPrefix("here is ")
+            || candidate.lowercased().hasPrefix("this text ")
+
+        return candidate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTooCloseToSource || hasMetaLead
     }
 
     private func shortenedRewrite(from text: String) -> String {
@@ -348,6 +397,11 @@ struct OutputPostProcessor {
             "rewrite",
             "rewritten text",
             "rewritten version",
+            "summary",
+            "brief summary",
+            "balanced summary",
+            "detailed summary",
+            "executive summary",
             "prompt",
             "final prompt",
             "reply",
@@ -438,6 +492,81 @@ struct OutputPostProcessor {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+    }
+
+    private func normalizedSummary(_ text: String, mode: ToolMode) -> String {
+        let sentences = sentenceFragments(from: text)
+        let selectedSentences = sentences.prefix(summarySentenceLimit(for: mode))
+        let seed = selectedSentences.isEmpty ? text : selectedSentences.joined(separator: " ")
+        let cleaned = cleanupRewriteParagraph(seed)
+        return trimmedSummary(cleaned, maxWords: summaryWordLimit(for: mode))
+    }
+
+    private func proseSummary(from items: [String], mode: ToolMode) -> String {
+        let selectedItems = items.prefix(summarySentenceLimit(for: mode))
+        let prose = selectedItems
+            .map { cleanupRewriteParagraph($0.trimmingCharacters(in: CharacterSet(charactersIn: ".?!"))) }
+            .joined(separator: " ")
+
+        return trimmedSummary(prose, maxWords: summaryWordLimit(for: mode))
+    }
+
+    private func heuristicSummary(from text: String, mode: ToolMode) -> String {
+        var fragments = sentenceFragments(from: text)
+
+        if fragments.count <= 1 {
+            let clauses = clauseFragments(from: text, splitCommas: false)
+            if clauses.count > 1 {
+                fragments = clauses
+            }
+        }
+
+        let selected = fragments.prefix(summarySentenceLimit(for: mode))
+        let summary = selected
+            .map { cleanupRewriteParagraph($0.trimmingCharacters(in: CharacterSet(charactersIn: ".?!"))) }
+            .joined(separator: " ")
+
+        return trimmedSummary(summary.isEmpty ? text : summary, maxWords: summaryWordLimit(for: mode))
+    }
+
+    private func summarySentenceLimit(for mode: ToolMode) -> Int {
+        switch mode.id {
+        case ToolMode.summarizeBrief.id:
+            1
+        case ToolMode.summarizeBalanced.id:
+            2
+        case ToolMode.summarizeDetailed.id:
+            3
+        case ToolMode.summarizeExecutive.id:
+            2
+        default:
+            2
+        }
+    }
+
+    private func summaryWordLimit(for mode: ToolMode) -> Int {
+        switch mode.id {
+        case ToolMode.summarizeBrief.id:
+            24
+        case ToolMode.summarizeBalanced.id:
+            48
+        case ToolMode.summarizeDetailed.id:
+            80
+        case ToolMode.summarizeExecutive.id:
+            42
+        default:
+            48
+        }
+    }
+
+    private func trimmedSummary(_ text: String, maxWords: Int) -> String {
+        let words = text.split(whereSeparator: \.isWhitespace)
+        guard words.count > maxWords else {
+            return cleanupRewriteParagraph(text)
+        }
+
+        let trimmed = words.prefix(maxWords).joined(separator: " ")
+        return cleanupRewriteParagraph(trimmed)
     }
 
     private func normalizeStandalonePronounI(in text: String) -> String {

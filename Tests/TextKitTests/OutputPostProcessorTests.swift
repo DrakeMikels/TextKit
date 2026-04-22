@@ -316,6 +316,51 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func summarizeBalancedTurnsBulletsIntoProseSummary() {
+        let request = GenerationRequest(
+            inputText: ToolMode.summarizeBalanced.sampleInput,
+            refineInstruction: "",
+            tool: .summarize,
+            mode: .summarizeBalanced,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .summarizeBalanced)
+        )
+
+        let result = processor._finalizeForTests(
+            """
+            - The app stays lightweight.
+            - Users download the model on first run.
+            - The cask waits until the packaged release is stable.
+            """,
+            for: request
+        )
+
+        #expect(result == "The app stays lightweight. Users download the model on first run.")
+    }
+
+    @Test
+    func summarizeBriefFallsBackWhenModelMostlyRepeatsSource() {
+        let request = GenerationRequest(
+            inputText: "The team agreed to delay the release by one week after legal found issues in the launch email, but the install flow and onboarding copy are otherwise ready to ship.",
+            refineInstruction: "",
+            tool: .summarize,
+            mode: .summarizeBrief,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .summarizeBrief)
+        )
+
+        let result = processor._finalizeForTests(
+            "The team agreed to delay the release by one week after legal found issues in the launch email, but the install flow and onboarding copy are otherwise ready to ship.",
+            for: request
+        )
+
+        #expect(wordCount(in: result) <= 24)
+        #expect(result.contains("delay the release"))
+    }
+
+    @Test
     func keepsReplyConciseWhenTheModelRunsLong() {
         let request = GenerationRequest(
             inputText: ToolMode.replyConcise.sampleInput,
@@ -334,5 +379,9 @@ struct OutputPostProcessorTests {
 
         #expect(!result.contains("Reply:"))
         #expect(result == "Absolutely, this still works for me.")
+    }
+
+    private func wordCount(in text: String) -> Int {
+        text.split(whereSeparator: \.isWhitespace).count
     }
 }
