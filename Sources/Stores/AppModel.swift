@@ -12,6 +12,7 @@ final class AppModel {
     private let routeEngine: RouteEngine
     private let promptComposer: PromptComposer
     private let inferenceEngine: InferenceEngine
+    private let outputPostProcessor: OutputPostProcessor
     private let cacheStore: CacheStore
     private var lastSelectedModeByTool: [ToolKind: ToolMode]
     private var generationTask: Task<Void, Never>?
@@ -33,6 +34,7 @@ final class AppModel {
         routeEngine: RouteEngine = RouteEngine(),
         promptComposer: PromptComposer = PromptComposer(),
         inferenceEngine: InferenceEngine = InferenceEngine(),
+        outputPostProcessor: OutputPostProcessor = OutputPostProcessor(),
         cacheStore: CacheStore = CacheStore()
     ) {
         self.settingsStore = settingsStore
@@ -41,6 +43,7 @@ final class AppModel {
         self.routeEngine = routeEngine
         self.promptComposer = promptComposer
         self.inferenceEngine = inferenceEngine
+        self.outputPostProcessor = outputPostProcessor
         self.cacheStore = cacheStore
         self.selectedTool = settingsStore.defaultFallbackTool
         self.selectedMode = settingsStore.defaultFallbackTool.defaultMode
@@ -171,13 +174,14 @@ final class AppModel {
             guard let self else { return }
 
             do {
-                let output = try await self.inferenceEngine.generate(
+                let rawOutput = try await self.inferenceEngine.generate(
                     for: request,
                     prompt: prompt,
                     executableURL: self.modelManager.runtimeExecutableURL,
                     model: model,
                     setupCommand: self.modelManager.setupCommand(for: request.quantPreset)
                 )
+                let output = self.outputPostProcessor.finalize(rawOutput, for: request)
 
                 guard !Task.isCancelled, revision == self.generationRevision else { return }
 
