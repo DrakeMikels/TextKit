@@ -97,7 +97,7 @@ struct ContentView: View {
             appModel.handleGenerationSettingsChange()
         }
         .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
-            appModel.refreshModelAvailability()
+            appModel.handleRuntimeSelectionChange()
         }
     }
 

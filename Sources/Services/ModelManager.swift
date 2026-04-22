@@ -23,13 +23,17 @@ enum ModelRuntimeState: Equatable {
 final class ModelManager {
     private let modelDisplayName = "Qwen2.5 0.5B Instruct"
     private let modelRepository = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-    private let runtimeName = "llama.cpp via llama-completion"
+    private let runtimeName = "llama.cpp local runtime"
 
     private(set) var isWarm = false
     private(set) var runtimeState: ModelRuntimeState = .unknown
 
     var runtimeExecutableURL: URL? {
         Self.resolveExecutable(named: "llama-completion")
+    }
+
+    var serverExecutableURL: URL? {
+        Self.resolveExecutable(named: "llama-server")
     }
 
     var runtimeProbeExecutableURL: URL? {
@@ -95,20 +99,23 @@ final class ModelManager {
         runtimeState = .running
     }
 
-    func markReady() {
-        isWarm = true
+    func markReady(isWarm: Bool) {
+        self.isWarm = isWarm
         runtimeState = .ready
     }
 
     func markMissingRuntime() {
+        isWarm = false
         runtimeState = .missingRuntime
     }
 
     func markMissingModel() {
+        isWarm = false
         runtimeState = .missingModel
     }
 
     func markFailure(_ message: String) {
+        isWarm = false
         runtimeState = .failed(message)
     }
 

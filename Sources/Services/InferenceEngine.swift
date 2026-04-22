@@ -1,5 +1,10 @@
 import Foundation
 
+struct InferenceOutput {
+    let text: String
+    let keepsRuntimeWarm: Bool
+}
+
 enum InferenceEngineError: LocalizedError {
     case missingRuntime(String)
     case modelNotInstalled(String)
@@ -21,7 +26,66 @@ enum InferenceEngineError: LocalizedError {
 }
 
 struct InferenceEngine {
+    private let serverCoordinator = LlamaServerCoordinator()
+
     func generate(
+        for request: GenerationRequest,
+        prompt: ComposedPrompt,
+        executableURL: URL?,
+        serverExecutableURL: URL?,
+        model: LocalModelDescriptor,
+        setupCommand: String,
+        warmCacheSeconds: Double,
+        modelManager: ModelManager
+    ) async throws -> InferenceOutput {
+        if warmCacheSeconds > 0, let serverExecutableURL {
+            do {
+                let output = try await serverCoordinator.generate(
+                    for: request,
+                    prompt: prompt,
+                    executableURL: serverExecutableURL,
+                    model: model,
+                    modelManager: modelManager,
+                    warmCacheSeconds: warmCacheSeconds
+                )
+
+                return InferenceOutput(text: output, keepsRuntimeWarm: true)
+            } catch let error as InferenceEngineError {
+                if case .modelNotInstalled = error {
+                    throw error
+                }
+
+                await serverCoordinator.stop()
+            } catch {
+                await serverCoordinator.stop()
+            }
+        }
+
+        let output = try await generateWithCompletion(
+            for: request,
+            prompt: prompt,
+            executableURL: executableURL,
+            model: model,
+            setupCommand: setupCommand
+        )
+
+        return InferenceOutput(text: output, keepsRuntimeWarm: false)
+    }
+
+    func stopWarmRuntime(modelManager: ModelManager) async {
+        await serverCoordinator.stop(modelManager: modelManager)
+    }
+
+    func _extractAssistantResponseForTests(from stdout: String) -> String {
+        extractAssistantResponse(from: stdout)
+    }
+
+    func _extractChatCompletionContentForTests(from data: Data) throws -> String {
+        let completion = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
+        return completion.choices.first?.message.content ?? ""
+    }
+
+    private func generateWithCompletion(
         for request: GenerationRequest,
         prompt: ComposedPrompt,
         executableURL: URL?,
@@ -58,10 +122,6 @@ struct InferenceEngine {
         }
 
         return output
-    }
-
-    func _extractAssistantResponseForTests(from stdout: String) -> String {
-        extractAssistantResponse(from: stdout)
     }
 
     private func arguments(

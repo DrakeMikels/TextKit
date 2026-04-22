@@ -110,6 +110,17 @@ final class AppModel {
         }
     }
 
+    func handleRuntimeSelectionChange() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            self.statusText = self.modelManager.statusSummary
+            self.cacheStore.invalidateAll()
+            self.regenerateNow()
+        }
+    }
+
     func handleGenerationSettingsChange() {
         cacheStore.invalidateAll()
         scheduleRegeneration()
@@ -174,19 +185,22 @@ final class AppModel {
             guard let self else { return }
 
             do {
-                let rawOutput = try await self.inferenceEngine.generate(
+                let generation = try await self.inferenceEngine.generate(
                     for: request,
                     prompt: prompt,
                     executableURL: self.modelManager.runtimeExecutableURL,
+                    serverExecutableURL: self.modelManager.serverExecutableURL,
                     model: model,
-                    setupCommand: self.modelManager.setupCommand(for: request.quantPreset)
+                    setupCommand: self.modelManager.setupCommand(for: request.quantPreset),
+                    warmCacheSeconds: self.settingsStore.warmCacheSeconds,
+                    modelManager: self.modelManager
                 )
-                let output = self.outputPostProcessor.finalize(rawOutput, for: request)
+                let output = self.outputPostProcessor.finalize(generation.text, for: request)
 
                 guard !Task.isCancelled, revision == self.generationRevision else { return }
 
                 self.cacheStore.store(output, for: key)
-                self.modelManager.markReady()
+                self.modelManager.markReady(isWarm: generation.keepsRuntimeWarm)
                 self.outputText = output
                 self.statusText = "\(self.modelManager.statusSummary) · ready"
             } catch let error as InferenceEngineError {
