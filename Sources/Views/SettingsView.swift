@@ -11,9 +11,9 @@ struct SettingsView: View {
         var title: String {
             switch self {
             case .general:
-                "General"
+                "Basics"
             case .prompts:
-                "Prompts"
+                "Customize"
             case .preview:
                 "Preview"
             }
@@ -103,32 +103,40 @@ struct SettingsView: View {
         settingsScrollView {
             settingsCard("Model", systemImage: "cube.box") {
                 VStack(alignment: .leading, spacing: 14) {
-                    controlBlock(title: "Profile") {
-                        Picker("Profile", selection: $settingsStore.modelProfile) {
+                    controlBlock(title: "Detail Level") {
+                        Picker("Detail Level", selection: $settingsStore.modelProfile) {
                             ForEach(ModelProfile.allCases) { profile in
                                 Text(profile.title).tag(profile)
                             }
                         }
                         .labelsHidden()
                         .frame(maxWidth: 220, alignment: .leading)
+
+                        Text("Fast keeps answers short. Quality allows more detail.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
-                    controlBlock(title: "Quant Preset") {
-                        Picker("Quant Preset", selection: $settingsStore.quantPreset) {
+                    controlBlock(title: "Model Size") {
+                        Picker("Model Size", selection: $settingsStore.quantPreset) {
                             ForEach(QuantPreset.allCases) { preset in
                                 Text(preset.title).tag(preset)
                             }
                         }
                         .labelsHidden()
                         .frame(maxWidth: 220, alignment: .leading)
+
+                        Text("Larger models can sound better, but use more space and may run slower.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(activeModel.displayName)
                             .font(.subheadline.weight(.semibold))
-                        Text(activeModel.repository)
+                        Text("Model source: \(activeModel.repository)")
                             .foregroundStyle(.secondary)
-                        Text("Selected quant file: \(activeModel.suggestedFilename)")
+                        Text("Installed file: \(activeModel.suggestedFilename)")
                             .foregroundStyle(.secondary)
                         Text(modelManager.runtimeDetail(for: settingsStore.quantPreset))
                             .foregroundStyle(.secondary)
@@ -145,11 +153,15 @@ struct SettingsView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Button("Refresh Status") {
+                        Button("Check Again") {
                             Task {
                                 await modelManager.refreshAvailability(for: settingsStore.quantPreset)
                             }
                         }
+
+                        Text("Install command")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
 
                         Text(modelManager.setupCommand(for: settingsStore.quantPreset))
                             .font(.caption.monospaced())
@@ -160,23 +172,27 @@ struct SettingsView: View {
                 }
             }
 
-            settingsCard("Behavior", systemImage: "switch.2") {
+            settingsCard("How TextKit Works", systemImage: "switch.2") {
                 VStack(alignment: .leading, spacing: 14) {
-                    Toggle("Watch clipboard automatically", isOn: $settingsStore.autoClipEnabled)
+                    Toggle("Use copied text automatically", isOn: $settingsStore.autoClipEnabled)
 
-                    controlBlock(title: "Fallback Tool") {
-                        Picker("Fallback Tool", selection: $settingsStore.defaultFallbackTool) {
+                    controlBlock(title: "Default Action") {
+                        Picker("Default Action", selection: $settingsStore.defaultFallbackTool) {
                             ForEach(ToolKind.allCases) { tool in
                                 Text(tool.title).tag(tool)
                             }
                         }
                         .labelsHidden()
                         .frame(maxWidth: 220, alignment: .leading)
+
+                        Text("This is the action TextKit falls back to when it is not sure what you copied.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("Warm Cache")
+                            Text("Keep Model Ready")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -186,7 +202,7 @@ struct SettingsView: View {
 
                         Slider(value: $settingsStore.warmCacheSeconds, in: 15...300, step: 15)
 
-                        Text("Controls how long the local runtime should stay ready after the last generation.")
+                        Text("Keeps the local AI ready for a short time after you use it, so the next result can feel faster.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -194,11 +210,11 @@ struct SettingsView: View {
                 }
             }
 
-            settingsCard("Runtime", systemImage: "cpu") {
+            settingsCard("About Local AI", systemImage: "cpu") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Local inference runs through \(activeModel.runtime) in offline mode after the selected quant is cached.")
+                    Text("TextKit runs the selected AI model locally on your Mac after it has been downloaded.")
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("Users can install the app first, then download the model on first run or from settings. The warm cache control above is already wired into preferences and will back a persistent runtime lifecycle later.")
+                    Text("The model is downloaded once. After that, your copied text stays on-device while TextKit works.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -208,37 +224,37 @@ struct SettingsView: View {
 
     private var promptProfilesPane: some View {
         settingsScrollView {
-            settingsCard("Mode Configuration", systemImage: "slider.horizontal.below.rectangle") {
+            settingsCard("Customize a Style", systemImage: "slider.horizontal.below.rectangle") {
                 VStack(alignment: .leading, spacing: 14) {
                     modeSelectionHeader
 
-                    Text("The base system prompt stays locked. This pane edits the additive system instruction, task template, and decode controls for the selected mode.")
+                    Text("TextKit keeps its built-in rules. Here you can adjust the extra instructions and output settings for the selected style.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            settingsCard("Locked Base System Prompt", systemImage: "lock") {
+            settingsCard("Built-In Instructions", systemImage: "lock") {
                 readOnlyPromptBlock(PromptComposer.lockedBaseSystemPrompt, height: 108)
             }
 
-            settingsCard("Mode-Specific System Instruction", systemImage: "text.alignleft") {
+            settingsCard("Extra Instructions", systemImage: "text.alignleft") {
                 TextEditor(text: systemInstructionBinding)
                     .font(.system(.body, design: .monospaced))
                     .frame(minHeight: 110)
             }
 
-            settingsCard("Task Template", systemImage: "doc.plaintext") {
+            settingsCard("What To Create", systemImage: "doc.plaintext") {
                 TextEditor(text: taskTemplateBinding)
                     .font(.system(.body, design: .monospaced))
                     .frame(minHeight: 180)
             }
 
-            settingsCard("Generation Controls", systemImage: "dial.medium") {
+            settingsCard("Response Settings", systemImage: "dial.medium") {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Temperature")
+                            Text("Creativity")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -247,6 +263,10 @@ struct SettingsView: View {
                         }
 
                         Slider(value: temperatureBinding, in: 0...1, step: 0.05)
+
+                        Text("Lower is steadier. Higher allows more variety.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
                     ViewThatFits(in: .horizontal) {
@@ -263,19 +283,19 @@ struct SettingsView: View {
                 }
             }
 
-            settingsCard("Profile Actions", systemImage: "square.and.arrow.down.on.square") {
+            settingsCard("Save or Reset", systemImage: "square.and.arrow.down.on.square") {
                 VStack(alignment: .leading, spacing: 12) {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 12) {
-                            Button("Reset Mode") {
+                            Button("Reset This Style") {
                                 settingsStore.resetConfiguration(for: selectedMode)
                             }
 
-                            Button("Reset All") {
+                            Button("Reset All Styles") {
                                 settingsStore.resetAllPromptConfigurations()
                             }
 
-                            Button("Apply Strict Defaults") {
+                            Button("Use Consistent Defaults") {
                                 settingsStore.applyStrictModeDefaults()
                             }
 
@@ -283,15 +303,15 @@ struct SettingsView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Button("Reset Mode") {
+                            Button("Reset This Style") {
                                 settingsStore.resetConfiguration(for: selectedMode)
                             }
 
-                            Button("Reset All") {
+                            Button("Reset All Styles") {
                                 settingsStore.resetAllPromptConfigurations()
                             }
 
-                            Button("Apply Strict Defaults") {
+                            Button("Use Consistent Defaults") {
                                 settingsStore.applyStrictModeDefaults()
                             }
                         }
@@ -301,14 +321,14 @@ struct SettingsView: View {
 
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 12) {
-                            Button("Import Profile") {
-                                runProfileAction("Imported prompt profile.") {
+                            Button("Import Settings") {
+                                runProfileAction("Imported custom settings.") {
                                     try settingsStore.importPromptProfile()
                                 }
                             }
 
-                            Button("Export Profile") {
-                                runProfileAction("Exported prompt profile.") {
+                            Button("Export Settings") {
+                                runProfileAction("Exported custom settings.") {
                                     try settingsStore.exportPromptProfile()
                                 }
                             }
@@ -317,14 +337,14 @@ struct SettingsView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Button("Import Profile") {
-                                runProfileAction("Imported prompt profile.") {
+                            Button("Import Settings") {
+                                runProfileAction("Imported custom settings.") {
                                     try settingsStore.importPromptProfile()
                                 }
                             }
 
-                            Button("Export Profile") {
-                                runProfileAction("Exported prompt profile.") {
+                            Button("Export Settings") {
+                                runProfileAction("Exported custom settings.") {
                                     try settingsStore.exportPromptProfile()
                                 }
                             }
@@ -343,33 +363,33 @@ struct SettingsView: View {
 
     private var previewPane: some View {
         settingsScrollView {
-            settingsCard("Prompt Preview", systemImage: "doc.text.magnifyingglass") {
+            settingsCard("Preview Your Setup", systemImage: "doc.text.magnifyingglass") {
                 VStack(alignment: .leading, spacing: 14) {
                     modeSelectionHeader
 
-                    TextField("Preview refine instruction", text: $previewRefineInstruction)
+                    TextField("Optional extra note", text: $previewRefineInstruction)
                         .textFieldStyle(.roundedBorder)
 
                     TextEditor(text: $previewInput)
                         .font(.body)
                         .frame(minHeight: 120)
 
-                    Text("Use this pane to see the exact prompt shape the app sends for the selected mode.")
+                    Text("Use this page to see what TextKit will send for the selected style.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            settingsCard("Effective System Prompt", systemImage: "lock.doc") {
+            settingsCard("Built-In Instructions Used", systemImage: "lock.doc") {
                 readOnlyPromptBlock(previewPrompt.systemPrompt, height: 180)
             }
 
-            settingsCard("Effective User Prompt", systemImage: "text.badge.plus") {
+            settingsCard("Final Request Sent", systemImage: "text.badge.plus") {
                 readOnlyPromptBlock(previewPrompt.userPrompt, height: 220)
             }
 
-            Text("Strict mode preview is active when the toggle is on. It clamps temperature lower and forces a deterministic seed if none is set.")
+            Text("When More Consistent Results is on, this preview uses the steadier settings too.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -394,11 +414,11 @@ struct SettingsView: View {
 
     private var modePickerControl: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Mode")
+            Text("Tool & Style")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            Picker("Mode", selection: $selectedAdvancedModeID) {
+            Picker("Tool & Style", selection: $selectedAdvancedModeID) {
                 ForEach(ToolMode.allCases) { mode in
                     Text("\(mode.tool.title) · \(mode.title)").tag(mode.id)
                 }
@@ -409,14 +429,14 @@ struct SettingsView: View {
     }
 
     private var strictModeToggle: some View {
-        Toggle("Strict Mode", isOn: $settingsStore.strictModeEnabled)
+        Toggle("More Consistent Results", isOn: $settingsStore.strictModeEnabled)
             .toggleStyle(.switch)
     }
 
     private var maxTokensControl: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Max Tokens")
+                Text("Length Limit")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -425,7 +445,7 @@ struct SettingsView: View {
             }
 
             Stepper(value: maxTokensBinding, in: 32...512, step: 8) {
-                Text("Adjust output budget")
+                Text("Allow longer results")
                     .foregroundStyle(.secondary)
             }
         }
@@ -434,15 +454,15 @@ struct SettingsView: View {
 
     private var seedControl: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Seed")
+            Text("Variation Code")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            TextField("Seed", value: seedBinding, format: .number)
+            TextField("Use -1 for automatic", value: seedBinding, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 180, alignment: .leading)
 
-            Text("-1 keeps sampling random")
+            Text("Use the same number for steadier repeats. Use -1 for a fresh variation each time.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

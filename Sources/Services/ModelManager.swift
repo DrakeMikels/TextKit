@@ -53,15 +53,15 @@ final class ModelManager {
     var statusSummary: String {
         switch runtimeState {
         case .unknown:
-            return "Checking local model"
+            return "Checking local AI"
         case .missingRuntime:
-            return "llama.cpp runtime missing"
+            return "Local AI tools missing"
         case .missingModel:
-            return "Qwen model not downloaded"
+            return "Model not downloaded"
         case .ready:
             return isWarm ? "On-device · warm" : "On-device"
         case .running:
-            return "Generating locally"
+            return "Working locally"
         case let .failed(message):
             return message
         }
@@ -72,15 +72,15 @@ final class ModelManager {
 
         switch runtimeState {
         case .unknown:
-            return "Checking for llama.cpp and the cached \(model.suggestedFilename)."
+            return "Checking whether the local AI is ready."
         case .missingRuntime:
-            return "Run \(setupCommand(for: quantPreset)) to install llama.cpp and cache the model."
+            return "TextKit still needs its local AI tools before it can run on this Mac."
         case .missingModel:
-            return "Run \(setupCommand(for: quantPreset)) to download \(model.suggestedFilename)."
+            return "TextKit still needs to download the selected local model."
         case .ready:
-            return "Using \(model.displayName) (\(model.quantPreset.title) quant) from the local Hugging Face cache."
+            return "This Mac is ready to use \(model.displayName) locally."
         case .running:
-            return "Running \(model.displayName) locally with llama.cpp."
+            return "TextKit is using \(model.displayName) on this Mac."
         case let .failed(message):
             return message
         }
@@ -135,7 +135,7 @@ final class ModelManager {
 
             runtimeState = modelIsCached ? .ready : .missingModel
         } catch {
-            runtimeState = .failed("Failed to inspect llama.cpp cache.")
+            runtimeState = .failed("Couldn't check whether the local AI is ready.")
         }
     }
 
