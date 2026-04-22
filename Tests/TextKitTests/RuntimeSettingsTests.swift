@@ -5,9 +5,12 @@ import Testing
 struct RuntimeSettingsTests {
     @Test
     func quantPresetMapsToExpectedModelFiles() {
-        #expect(QuantPreset.fast.suggestedFilename == "qwen2.5-0.5b-instruct-q4_k_s.gguf")
-        #expect(QuantPreset.balanced.suggestedFilename == "qwen2.5-0.5b-instruct-q4_k_m.gguf")
-        #expect(QuantPreset.quality.suggestedFilename == "qwen2.5-0.5b-instruct-q5_k_m.gguf")
+        #expect(LocalModelOption.stable.suggestedFilename(for: .fast) == "qwen2.5-0.5b-instruct-q4_k_s.gguf")
+        #expect(LocalModelOption.stable.suggestedFilename(for: .balanced) == "qwen2.5-0.5b-instruct-q4_k_m.gguf")
+        #expect(LocalModelOption.stable.suggestedFilename(for: .quality) == "qwen2.5-0.5b-instruct-q5_k_m.gguf")
+        #expect(LocalModelOption.experimental.suggestedFilename(for: .fast) == "Qwen3.5-0.8B.q4_k_s.gguf")
+        #expect(LocalModelOption.experimental.suggestedFilename(for: .balanced) == "Qwen3.5-0.8B.q4_k_m.gguf")
+        #expect(LocalModelOption.experimental.suggestedFilename(for: .quality) == "Qwen3.5-0.8B.q5_k_m.gguf")
     }
 
     @Test
@@ -67,6 +70,10 @@ struct RuntimeSettingsTests {
         store.quantPreset = .quality
         #expect(store.generationSettingsRevision == initialGenerationRevision + 2)
         #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 1)
+
+        store.localModelOption = .experimental
+        #expect(store.generationSettingsRevision == initialGenerationRevision + 3)
+        #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 2)
     }
 
     @Test

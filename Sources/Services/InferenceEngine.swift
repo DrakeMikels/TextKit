@@ -129,7 +129,7 @@ struct InferenceEngine {
         prompt: ComposedPrompt,
         model: LocalModelDescriptor
     ) -> [String] {
-        [
+        var arguments = [
             "--verbosity", "0",
             "--offline",
             "--simple-io",
@@ -142,6 +142,12 @@ struct InferenceEngine {
             "--temp", String(format: "%.2f", request.promptConfiguration.temperature),
             "-s", String(request.promptConfiguration.seed)
         ]
+
+        if model.requiresReasoningOff {
+            arguments.append(contentsOf: ["--reasoning", "off"])
+        }
+
+        return arguments
     }
 
     private func extractAssistantResponse(from stdout: String) -> String {

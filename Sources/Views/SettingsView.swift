@@ -57,7 +57,10 @@ struct SettingsView: View {
     }
 
     private var activeModel: LocalModelDescriptor {
-        modelManager.model(for: settingsStore.quantPreset)
+        modelManager.model(
+            for: settingsStore.localModelOption,
+            quantPreset: settingsStore.quantPreset
+        )
     }
 
     private var previewPrompt: ComposedPrompt {
@@ -96,7 +99,18 @@ struct SettingsView: View {
         }
         .onChange(of: settingsStore.quantPreset) { _, quantPreset in
             Task {
-                await modelManager.refreshAvailability(for: quantPreset)
+                await modelManager.refreshAvailability(
+                    for: settingsStore.localModelOption,
+                    quantPreset: quantPreset
+                )
+            }
+        }
+        .onChange(of: settingsStore.localModelOption) { _, modelOption in
+            Task {
+                await modelManager.refreshAvailability(
+                    for: modelOption,
+                    quantPreset: settingsStore.quantPreset
+                )
             }
         }
     }
@@ -105,6 +119,21 @@ struct SettingsView: View {
         settingsScrollView {
             settingsCard("Model", systemImage: "cube.box") {
                 VStack(alignment: .leading, spacing: 14) {
+                    controlBlock(title: "AI Model") {
+                        Picker("AI Model", selection: $settingsStore.localModelOption) {
+                            ForEach(LocalModelOption.allCases) { modelOption in
+                                Text(modelOption.title).tag(modelOption)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: 280, alignment: .leading)
+                        .disabled(setupManager.isRunning)
+
+                        Text(settingsStore.localModelOption.helperDetail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     controlBlock(title: "Detail Level") {
                         Picker("Detail Level", selection: $settingsStore.modelProfile) {
                             ForEach(ModelProfile.allCases) { profile in
@@ -130,7 +159,7 @@ struct SettingsView: View {
                         .frame(maxWidth: 220, alignment: .leading)
                         .disabled(setupManager.isRunning)
 
-                        Text("Larger models can sound better, but use more space and may run slower.")
+                        Text("This changes the download size and speed for the selected AI model.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -142,7 +171,10 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                         Text("Installed file: \(activeModel.suggestedFilename)")
                             .foregroundStyle(.secondary)
-                        Text(modelManager.runtimeDetail(for: settingsStore.quantPreset))
+                        Text(modelManager.runtimeDetail(
+                            for: settingsStore.localModelOption,
+                            quantPreset: settingsStore.quantPreset
+                        ))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -159,7 +191,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Button("Check Again") {
                             Task {
-                                await modelManager.refreshAvailability(for: settingsStore.quantPreset)
+                                await modelManager.refreshAvailability(
+                                    for: settingsStore.localModelOption,
+                                    quantPreset: settingsStore.quantPreset
+                                )
                             }
                         }
                         .disabled(setupManager.isRunning)
@@ -168,7 +203,10 @@ struct SettingsView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
 
-                        Text(modelManager.setupCommand(for: settingsStore.quantPreset))
+                        Text(modelManager.setupCommand(
+                            for: settingsStore.localModelOption,
+                            quantPreset: settingsStore.quantPreset
+                        ))
                             .font(.caption.monospaced())
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)

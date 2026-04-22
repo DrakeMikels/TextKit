@@ -4,13 +4,17 @@ set -euo pipefail
 MODE="setup"
 LLAMA_BIN="/opt/homebrew/bin/llama-completion"
 PROBE_BIN="/opt/homebrew/bin/llama-cli"
-MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+MODEL_OPTION="stable"
 QUANT_PRESET="balanced"
 SYSTEM_PROMPT="You are a helpful assistant."
 SMOKE_PROMPT="Reply with only the word OK."
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --model)
+      MODEL_OPTION="${2:-}"
+      shift 2
+      ;;
     --quant)
       QUANT_PRESET="${2:-}"
       shift 2
@@ -20,27 +24,59 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "usage: $0 [setup|--smoke-test] [--quant fast|balanced|quality]" >&2
+      echo "usage: $0 [setup|--smoke-test] [--model stable|experimental] [--quant fast|balanced|quality]" >&2
       exit 2
       ;;
   esac
 done
 
-case "$QUANT_PRESET" in
-  fast)
-    MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_s.gguf"
-    CACHE_TAG="Q4_K_S"
+case "$MODEL_OPTION" in
+  stable)
+    MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+    REASONING_ARGS=()
+    case "$QUANT_PRESET" in
+      fast)
+        MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_s.gguf"
+        CACHE_TAG="Q4_K_S"
+        ;;
+      balanced)
+        MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        CACHE_TAG="Q4_K_M"
+        ;;
+      quality)
+        MODEL_FILE="qwen2.5-0.5b-instruct-q5_k_m.gguf"
+        CACHE_TAG="Q5_K_M"
+        ;;
+      *)
+        echo "invalid quant preset: $QUANT_PRESET" >&2
+        exit 2
+        ;;
+    esac
     ;;
-  balanced)
-    MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_m.gguf"
-    CACHE_TAG="Q4_K_M"
-    ;;
-  quality)
-    MODEL_FILE="qwen2.5-0.5b-instruct-q5_k_m.gguf"
-    CACHE_TAG="Q5_K_M"
+  experimental)
+    MODEL_REPO="AaryanK/Qwen3.5-0.8B-GGUF"
+    REASONING_ARGS=(--reasoning off)
+    case "$QUANT_PRESET" in
+      fast)
+        MODEL_FILE="Qwen3.5-0.8B.q4_k_s.gguf"
+        CACHE_TAG="Q4_K_S"
+        ;;
+      balanced)
+        MODEL_FILE="Qwen3.5-0.8B.q4_k_m.gguf"
+        CACHE_TAG="Q4_K_M"
+        ;;
+      quality)
+        MODEL_FILE="Qwen3.5-0.8B.q5_k_m.gguf"
+        CACHE_TAG="Q5_K_M"
+        ;;
+      *)
+        echo "invalid quant preset: $QUANT_PRESET" >&2
+        exit 2
+        ;;
+    esac
     ;;
   *)
-    echo "invalid quant preset: $QUANT_PRESET" >&2
+    echo "invalid model option: $MODEL_OPTION" >&2
     exit 2
     ;;
 esac
@@ -64,6 +100,7 @@ download_model() {
     --verbosity 0 \
     --simple-io \
     --no-warmup \
+    "${REASONING_ARGS[@]}" \
     -hf "$MODEL_REPO" \
     -hff "$MODEL_FILE" \
     -sys "$SYSTEM_PROMPT" \
@@ -79,6 +116,7 @@ smoke_test() {
     --offline \
     --simple-io \
     --no-warmup \
+    "${REASONING_ARGS[@]}" \
     -hf "$MODEL_REPO" \
     -hff "$MODEL_FILE" \
     -sys "$SYSTEM_PROMPT" \
@@ -96,13 +134,13 @@ case "$MODE" in
     ;;
   --smoke-test|smoke-test)
     if ! model_cached; then
-      echo "Model is not cached yet. Run ./script/setup_model_runtime.sh --quant $QUANT_PRESET first." >&2
+      echo "Model is not cached yet. Run ./script/setup_model_runtime.sh --model $MODEL_OPTION --quant $QUANT_PRESET first." >&2
       exit 1
     fi
     smoke_test
     ;;
   *)
-    echo "usage: $0 [setup|--smoke-test] [--quant fast|balanced|quality]" >&2
+    echo "usage: $0 [setup|--smoke-test] [--model stable|experimental] [--quant fast|balanced|quality]" >&2
     exit 2
     ;;
 esac

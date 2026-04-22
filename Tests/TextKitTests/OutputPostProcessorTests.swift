@@ -29,6 +29,56 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func stripsThinkTagsFromRewriteOutput() {
+        let request = GenerationRequest(
+            inputText: ToolMode.rewriteClean.sampleInput,
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteClean,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteClean)
+        )
+
+        let result = processor._finalizeForTests(
+            "<think>\nreasoning\n</think>\nHey John, just checking if Friday still works for the launch review. I can move it if needed.",
+            for: request
+        )
+
+        #expect(!result.contains("<think>"))
+        #expect(result == "Hey John, just checking if Friday still works for the launch review. I can move it if needed.")
+    }
+
+    @Test
+    func fallsBackToSourceBulletsWhenModelReturnsMetaAnalysis() {
+        let request = GenerationRequest(
+            inputText: ToolMode.rewriteBullet.sampleInput,
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteBullet,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteBullet)
+        )
+
+        let result = processor._finalizeForTests(
+            """
+            - Analyze the Request:
+            - Task:** Convert the input text into concise bullet points
+            - Constraint 1:** Keep only the important content
+            - Input Text:** Need to finish the onboarding copy
+            """,
+            for: request
+        )
+
+        #expect(result == """
+        - Need to finish the onboarding copy
+        - Update the launch checklist
+        - Confirm who owns the release email draft
+        """)
+    }
+
+    @Test
     func naturalizesShortRewriteWhenModelReturnsNotes() {
         let request = GenerationRequest(
             inputText: "hey john just checking if friday still works for the launch review i can move it if needed",
@@ -49,6 +99,26 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func shortRewriteCompressesSoftLeadInsWhenModelBarelyChangesInput() {
+        let request = GenerationRequest(
+            inputText: "just wanted to check whether the launch email still needs legal review or if i should send the final version now",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteShort,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteShort)
+        )
+
+        let result = processor._finalizeForTests(
+            "Just wanted to check whether the launch email still needs legal review or if I should send the final version now.",
+            for: request
+        )
+
+        #expect(result == "Does the launch email still need legal review, or should I send the final version now?")
+    }
+
+    @Test
     func professionalRewriteAddsClearerToneWhenOutputStaysCasual() {
         let request = GenerationRequest(
             inputText: "hey john just checking if friday still works for the launch review i can move it if needed",
@@ -66,6 +136,46 @@ struct OutputPostProcessorTests {
         )
 
         #expect(result == "Hi John, could you confirm whether Friday still works for the launch review? I can move it if needed.")
+    }
+
+    @Test
+    func professionalRewriteKeepsRequestDirectionWhenModelTurnsItIntoNeedStatement() {
+        let request = GenerationRequest(
+            inputText: "can you send me the numbers by tomorrow morning so i can get this into the board update",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteProfessional)
+        )
+
+        let result = processor._finalizeForTests(
+            "I need the numbers by tomorrow morning so I can update the board.",
+            for: request
+        )
+
+        #expect(result == "Could you send me the numbers by tomorrow morning so I can include them in the board update?")
+    }
+
+    @Test
+    func professionalRewriteFixesCasualConfirmationLeadIn() {
+        let request = GenerationRequest(
+            inputText: "hey sam checking whether you can confirm the revised invoice today so we can close this out",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteProfessional)
+        )
+
+        let result = processor._finalizeForTests(
+            "Hey, Sam, confirming the revised invoice today so we can close this out.",
+            for: request
+        )
+
+        #expect(result == "Hi Sam, could you confirm the revised invoice today so we can close this out?")
     }
 
     @Test

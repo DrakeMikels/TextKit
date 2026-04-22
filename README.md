@@ -30,6 +30,11 @@ The current default model target is the official Hugging Face repo `Qwen/Qwen2.5
 - Runtime: `llama-completion`
 - Inference mode: offline after first cache download
 
+TextKit also includes an experimental larger-model option:
+
+- Stable: `Qwen2.5 0.5B`
+- Experimental: `Qwen3.5 0.8B (Experimental)`
+
 The app invokes `llama-completion` directly and uses the standard Hugging Face cache populated by `llama.cpp`.
 
 ## Setup the local model
@@ -48,6 +53,12 @@ To cache a different quant explicitly:
 
 ```bash
 ./script/setup_model_runtime.sh --quant quality
+```
+
+To cache the experimental model instead:
+
+```bash
+./script/setup_model_runtime.sh --model experimental --quant balanced
 ```
 
 After setup, the app uses `--offline` so normal inference does not depend on network access.
@@ -104,6 +115,12 @@ By default the harness uses the repo prompt defaults with deterministic strict-s
 ```
 
 The default threshold expects the selected cases to pass, so a failing run is the signal to tune prompts, post-processing, or model choice before changing the baseline.
+
+To compare the experimental model against the same golden rewrite set:
+
+```bash
+./script/run_golden_eval.sh --model experimental
+```
 
 ## Release notes
 

@@ -89,6 +89,7 @@ private struct GoldenEvalResult {
 }
 
 private struct GoldenEvalConfiguration {
+    let modelOption: LocalModelOption
     let quantPreset: QuantPreset
     let modelProfile: ModelProfile
     let minimumPassRate: Double
@@ -98,6 +99,7 @@ private struct GoldenEvalConfiguration {
 
     static func fromEnvironment() -> GoldenEvalConfiguration {
         let environment = ProcessInfo.processInfo.environment
+        let modelOption = LocalModelOption(rawValue: environment["TEXTKIT_EVAL_MODEL"] ?? "") ?? .stable
         let quantPreset = QuantPreset(rawValue: environment["TEXTKIT_EVAL_QUANT"] ?? "") ?? .balanced
         let modelProfile = ModelProfile(rawValue: environment["TEXTKIT_EVAL_MODEL_PROFILE"] ?? "") ?? .balanced
         let minimumPassRate = Double(environment["TEXTKIT_EVAL_MIN_PASS_RATE"] ?? "") ?? 1
@@ -106,6 +108,7 @@ private struct GoldenEvalConfiguration {
         let useStrictProfile = environment["TEXTKIT_EVAL_USE_STRICT_PROFILE"] != "0"
 
         return GoldenEvalConfiguration(
+            modelOption: modelOption,
             quantPreset: quantPreset,
             modelProfile: modelProfile,
             minimumPassRate: minimumPassRate,
@@ -304,7 +307,10 @@ private struct GoldenEvalRunner {
         let inferenceEngine = InferenceEngine()
         let postProcessor = OutputPostProcessor()
         let scorer = GoldenEvalScorer()
-        let model = modelManager.model(for: configuration.quantPreset)
+        let model = modelManager.model(
+            for: configuration.modelOption,
+            quantPreset: configuration.quantPreset
+        )
 
         var results: [GoldenEvalResult] = []
 
@@ -334,7 +340,10 @@ private struct GoldenEvalRunner {
                     executableURL: modelManager.runtimeExecutableURL,
                     serverExecutableURL: nil,
                     model: model,
-                    setupCommand: modelManager.setupCommand(for: configuration.quantPreset),
+                    setupCommand: modelManager.setupCommand(
+                        for: configuration.modelOption,
+                        quantPreset: configuration.quantPreset
+                    ),
                     warmCacheSeconds: 0,
                     modelManager: modelManager
                 )
@@ -389,7 +398,7 @@ private extension Array where Element == GoldenEvalResult {
     func summaryLines(configuration: GoldenEvalConfiguration) -> [String] {
         var lines = [
             "TextKit Golden Eval",
-            "modelProfile=\(configuration.modelProfile.rawValue) quant=\(configuration.quantPreset.rawValue) strict=\(configuration.useStrictProfile ? "1" : "0") cases=\(count) passRate=\(String(format: "%.2f", passRate)) threshold=\(String(format: "%.2f", configuration.minimumPassRate))"
+            "model=\(configuration.modelOption.rawValue) modelProfile=\(configuration.modelProfile.rawValue) quant=\(configuration.quantPreset.rawValue) strict=\(configuration.useStrictProfile ? "1" : "0") cases=\(count) passRate=\(String(format: "%.2f", passRate)) threshold=\(String(format: "%.2f", configuration.minimumPassRate))"
         ]
 
         for result in self {

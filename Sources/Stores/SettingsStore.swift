@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 @Observable
 final class SettingsStore {
     private enum Keys {
+        static let localModelOption = "settings.localModelOption"
         static let modelProfile = "settings.modelProfile"
         static let quantPreset = "settings.quantPreset"
         static let autoClipEnabled = "settings.autoClipEnabled"
@@ -21,6 +22,14 @@ final class SettingsStore {
     private let decoder = JSONDecoder()
     private(set) var generationSettingsRevision = 0
     private(set) var runtimeSelectionRevision = 0
+
+    var localModelOption: LocalModelOption {
+        didSet {
+            defaults.set(localModelOption.rawValue, forKey: Keys.localModelOption)
+            generationSettingsRevision += 1
+            runtimeSelectionRevision += 1
+        }
+    }
 
     var modelProfile: ModelProfile {
         didSet {
@@ -65,6 +74,7 @@ final class SettingsStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.localModelOption = LocalModelOption(rawValue: defaults.string(forKey: Keys.localModelOption) ?? "") ?? .stable
         self.modelProfile = ModelProfile(rawValue: defaults.string(forKey: Keys.modelProfile) ?? "") ?? .balanced
         self.quantPreset = QuantPreset(rawValue: defaults.string(forKey: Keys.quantPreset) ?? "") ?? .balanced
         self.autoClipEnabled = defaults.object(forKey: Keys.autoClipEnabled) as? Bool ?? true

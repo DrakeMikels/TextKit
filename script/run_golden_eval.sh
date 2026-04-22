@@ -4,6 +4,7 @@ set -euo pipefail
 XCODE_DEVELOPER_DIR="/Volumes/SSD/Applications/Xcode.app/Contents/Developer"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+MODEL_OPTION="stable"
 QUANT_PRESET="balanced"
 MODEL_PROFILE="balanced"
 MIN_PASS_RATE="1.0"
@@ -17,6 +18,10 @@ fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --model)
+      MODEL_OPTION="${2:-}"
+      shift 2
+      ;;
     --quant)
       QUANT_PRESET="${2:-}"
       shift 2
@@ -42,11 +47,20 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      echo "usage: $0 [--quant fast|balanced|quality] [--profile fast|balanced|quality] [--threshold 0.0-1.0] [--mode rewrite.short] [--case substring] [--defaults]" >&2
+      echo "usage: $0 [--model stable|experimental] [--quant fast|balanced|quality] [--profile fast|balanced|quality] [--threshold 0.0-1.0] [--mode rewrite.short] [--case substring] [--defaults]" >&2
       exit 2
       ;;
   esac
 done
+
+case "$MODEL_OPTION" in
+  stable|experimental)
+    ;;
+  *)
+    echo "invalid model option: $MODEL_OPTION" >&2
+    exit 2
+    ;;
+esac
 
 case "$QUANT_PRESET" in
   fast|balanced|quality)
@@ -69,6 +83,7 @@ esac
 cd "$ROOT_DIR"
 
 TEXTKIT_RUN_GOLDEN_EVAL=1 \
+TEXTKIT_EVAL_MODEL="$MODEL_OPTION" \
 TEXTKIT_EVAL_QUANT="$QUANT_PRESET" \
 TEXTKIT_EVAL_MODEL_PROFILE="$MODEL_PROFILE" \
 TEXTKIT_EVAL_MIN_PASS_RATE="$MIN_PASS_RATE" \

@@ -27,7 +27,6 @@ final class SetupManager {
         }
     }
 
-    private let modelRepository = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
     private let systemPrompt = "You are a helpful assistant."
     private let smokePrompt = "Reply with only the word OK."
 
@@ -183,7 +182,7 @@ final class SetupManager {
                 arguments: ["--cache-list"]
             )
 
-            return result.stdout.contains("\(modelRepository):\(model.quantPreset.cacheTag)")
+            return result.stdout.contains("\(model.repository):\(model.quantPreset.cacheTag)")
                 || result.stdout.contains(model.suggestedFilename)
         } catch {
             return false
@@ -191,32 +190,44 @@ final class SetupManager {
     }
 
     private func downloadArguments(for model: LocalModelDescriptor) -> [String] {
-        [
+        var arguments = [
             "--verbosity", "0",
             "--simple-io",
             "--no-warmup",
-            "-hf", modelRepository,
+            "-hf", model.repository,
             "-hff", model.suggestedFilename,
             "-sys", systemPrompt,
             "-p", smokePrompt,
             "-n", "8",
             "--temp", "0"
         ]
+
+        if model.requiresReasoningOff {
+            arguments.append(contentsOf: ["--reasoning", "off"])
+        }
+
+        return arguments
     }
 
     private func verificationArguments(for model: LocalModelDescriptor) -> [String] {
-        [
+        var arguments = [
             "--verbosity", "0",
             "--offline",
             "--simple-io",
             "--no-warmup",
-            "-hf", modelRepository,
+            "-hf", model.repository,
             "-hff", model.suggestedFilename,
             "-sys", systemPrompt,
             "-p", smokePrompt,
             "-n", "8",
             "--temp", "0"
         ]
+
+        if model.requiresReasoningOff {
+            arguments.append(contentsOf: ["--reasoning", "off"])
+        }
+
+        return arguments
     }
 
     private func updateProgress(title: String, detail: String, progress: Double) {

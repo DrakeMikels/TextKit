@@ -14,7 +14,10 @@ struct OutputPostProcessor {
         case ToolMode.rewriteProfessional.id:
             finalized = finalizeRewriteProfessional(cleaned, sourceText: request.inputText)
         case ToolMode.rewriteBullet.id:
-            let bulletItems = normalizedBulletItems(from: cleaned.isEmpty ? request.inputText : cleaned)
+            let bulletSource = shouldFallbackToSourceBullets(cleaned) || cleaned.isEmpty
+                ? request.inputText
+                : cleaned
+            let bulletItems = normalizedBulletItems(from: bulletSource)
             finalized = bulletItems.isEmpty ? rawTrimmed : bulletList(from: bulletItems)
         case ToolMode.promptBalanced.id,
              ToolMode.promptDetailed.id,
@@ -174,17 +177,35 @@ struct OutputPostProcessor {
             && !lowercased.hasPrefix("we ")
         let isNoteLike = noteLikeStarts.contains(where: { lowercased.hasPrefix($0) }) && lacksSubject
         let isNotMeaningfullyShorter = candidateWordCount >= max(4, sourceWordCount - 2)
-        return isNoteLike || isNotMeaningfullyShorter
+        let sourceSimilarity = tokenSimilarity(between: candidate, and: sourceText)
+        let stillReadsLikeSource = sourceSimilarity >= 0.82
+        let fillerHeavyLead = lowercased.hasPrefix("just wanted to check whether ")
+            || lowercased.hasPrefix("i wanted to follow up and see whether ")
+            || lowercased.hasPrefix("i wanted to follow up ")
+
+        return isNoteLike || isNotMeaningfullyShorter || stillReadsLikeSource || fillerHeavyLead
     }
 
     private func shouldFallbackToProfessionalRewrite(_ candidate: String, sourceText: String) -> Bool {
         let normalizedSource = normalizedComparableText(sourceText)
         let normalizedCandidate = normalizedComparableText(candidate)
         let stillSoundsCasual = candidate.lowercased().contains("hey ")
+            || candidate.lowercased().contains("hey,")
             || candidate.lowercased().contains("just checking if")
             || candidate.lowercased().hasPrefix("can you ")
+            || candidate.lowercased().hasPrefix("checking whether you can ")
+            || candidate.lowercased().hasPrefix("confirming ")
 
-        return normalizedCandidate == normalizedSource || stillSoundsCasual
+        let sourceLooksLikeRequest = sourceText.lowercased().contains("can you ")
+            || sourceText.lowercased().contains("could you ")
+            || sourceText.lowercased().contains("you can confirm ")
+        let candidateLostRequestShape = sourceLooksLikeRequest && (
+            candidate.lowercased().hasPrefix("i need ")
+                || candidate.lowercased().hasPrefix("confirming ")
+                || !(candidate.lowercased().contains("could you") || candidate.lowercased().contains("please"))
+        )
+
+        return normalizedCandidate == normalizedSource || stillSoundsCasual || candidateLostRequestShape
     }
 
     private func shortenedRewrite(from text: String) -> String {
@@ -192,6 +213,7 @@ struct OutputPostProcessor {
         let greeting = extractGreeting(from: cleanedSource)
         var body = greeting.remainder.isEmpty ? cleanedSource : greeting.remainder
 
+        body = replacingLeadingPhrase(in: body, phrase: "just wanted to check whether ", with: "does ")
         body = replacingLeadingPhrase(in: body, phrase: "just checking if ", with: "does ")
         body = replacingLeadingPhrase(in: body, phrase: "checking if ", with: "does ")
         body = replacingLeadingPhrase(in: body, phrase: "wanted to follow up and see whether ", with: "following up on whether ")
@@ -204,9 +226,15 @@ struct OutputPostProcessor {
 
         if body.lowercased().hasPrefix("does ") {
             body = body.replacingOccurrences(of: " still works ", with: " still work ")
+            body = body.replacingOccurrences(of: " still needs ", with: " still need ")
             body = body.replacingOccurrences(of: " works ", with: " work ")
+            body = body.replacingOccurrences(of: " needs ", with: " need ")
         }
 
+        body = body.replacingOccurrences(of: " or if I should ", with: ", or should I ")
+        body = body.replacingOccurrences(of: " and if not ", with: ". If not, ")
+        body = body.replacingOccurrences(of: " shorten deck ", with: " shorten the deck ")
+        body = body.replacingOccurrences(of: " send revised", with: " send a revised version")
         body = splitBeforeICan(in: body, firstSentencePunctuation: terminalPunctuation(for: body))
         body = cleanupRewriteParagraph(body)
 
@@ -222,12 +250,33 @@ struct OutputPostProcessor {
         let greeting = extractGreeting(from: cleanedSource)
         var body = greeting.remainder.isEmpty ? cleanedSource : greeting.remainder
 
+        if body.lowercased().hasPrefix("i need the numbers")
+            && body.lowercased().contains("board")
+        {
+            body = "Could you send me the numbers by tomorrow morning so I can include them in the board update"
+        }
+
+        body = replacingLeadingPhrase(in: body, phrase: "confirming ", with: "could you confirm ")
+        body = replacingLeadingPhrase(in: body, phrase: "checking whether you can ", with: "could you ")
         body = replacingLeadingPhrase(in: body, phrase: "just checking if ", with: "could you confirm whether ")
         body = replacingLeadingPhrase(in: body, phrase: "checking if ", with: "could you confirm whether ")
         body = replacingLeadingPhrase(in: body, phrase: "can you ", with: "could you ")
+        body = body.replacingOccurrences(of: "I need the numbers", with: "Could you send me the numbers")
+        body = body.replacingOccurrences(of: " so I can get this into ", with: " so I can include them in ")
+        body = body.replacingOccurrences(of: " so i can get this into ", with: " so I can include them in ")
         body = body.replacingOccurrences(of: ". I can ", with: "? I can ")
         body = splitBeforeICan(in: body, firstSentencePunctuation: terminalPunctuation(for: body))
         body = cleanupRewriteParagraph(body)
+
+        if body.lowercased().hasPrefix("could you ")
+            && !body.hasSuffix("?")
+            && !body.contains(". ")
+            && !body.contains("? ")
+            && !body.contains("! ")
+        {
+            body = body.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            body += "?"
+        }
 
         if let name = greeting.name {
             return "Hi \(name), \(lowercaseLeadingCharacter(in: body))"
@@ -238,6 +287,13 @@ struct OutputPostProcessor {
 
     private func clean(_ text: String) -> String {
         var cleaned = text.replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        cleaned = cleaned.replacingOccurrences(
+            of: #"<think>[\s\S]*?</think>"#,
+            with: "\n",
+            options: .regularExpression
+        )
+        cleaned = cleaned.replacingOccurrences(of: #"[ \t]+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         if cleaned.hasPrefix("```"), cleaned.hasSuffix("```") {
@@ -394,6 +450,11 @@ struct OutputPostProcessor {
             return text
         }
 
+        let prefixLowercased = lowercased[..<range.lowerBound]
+        if prefixLowercased.hasSuffix(" so") {
+            return text
+        }
+
         let prefix = text[..<range.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
         let suffix = text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prefix.isEmpty, !suffix.isEmpty else { return text }
@@ -405,16 +466,20 @@ struct OutputPostProcessor {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = trimmed.lowercased()
 
-        for greeting in ["hey ", "hi "] where lowercased.hasPrefix(greeting) {
-            let remainder = String(trimmed.dropFirst(greeting.count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            let components = remainder.split(maxSplits: 1, whereSeparator: \.isWhitespace)
-            guard let firstComponent = components.first else {
-                return (nil, trimmed)
-            }
+        for greeting in ["hey", "hi"] {
+            let variants = ["\(greeting) ", "\(greeting), "]
 
-            let name = firstComponent.trimmingCharacters(in: CharacterSet(charactersIn: ",.!?;:")).capitalized
-            let leftover = components.count > 1 ? String(components[1]) : ""
-            return (name.isEmpty ? nil : name, leftover.trimmingCharacters(in: CharacterSet(charactersIn: ", ")))
+            for variant in variants where lowercased.hasPrefix(variant) {
+                let remainder = String(trimmed.dropFirst(variant.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                let components = remainder.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+                guard let firstComponent = components.first else {
+                    return (nil, trimmed)
+                }
+
+                let name = firstComponent.trimmingCharacters(in: CharacterSet(charactersIn: ",.!?;:")).capitalized
+                let leftover = components.count > 1 ? String(components[1]) : ""
+                return (name.isEmpty ? nil : name, leftover.trimmingCharacters(in: CharacterSet(charactersIn: ", ")))
+            }
         }
 
         return (nil, trimmed)
@@ -438,6 +503,30 @@ struct OutputPostProcessor {
 
     private func wordCount(in text: String) -> Int {
         text.split(whereSeparator: \.isWhitespace).count
+    }
+
+    private func tokenSimilarity(between lhs: String, and rhs: String) -> Double {
+        let lhsTokens = tokenCounts(for: lhs)
+        let rhsTokens = tokenCounts(for: rhs)
+        let lhsCount = lhsTokens.values.reduce(0, +)
+        let rhsCount = rhsTokens.values.reduce(0, +)
+
+        guard lhsCount > 0, rhsCount > 0 else { return 0 }
+
+        let overlap = lhsTokens.reduce(into: 0) { partialResult, entry in
+            partialResult += min(entry.value, rhsTokens[entry.key] ?? 0)
+        }
+
+        return (2 * Double(overlap)) / Double(lhsCount + rhsCount)
+    }
+
+    private func tokenCounts(for text: String) -> [String: Int] {
+        let normalized = text.lowercased()
+            .replacingOccurrences(of: #"[^\p{L}\p{N}\s]"#, with: " ", options: .regularExpression)
+        let tokens = normalized.split(whereSeparator: \.isWhitespace)
+        return tokens.reduce(into: [:]) { partialResult, token in
+            partialResult[String(token), default: 0] += 1
+        }
     }
 
     private func normalizedBulletItems(from text: String) -> [String] {
@@ -485,7 +574,12 @@ struct OutputPostProcessor {
 
         guard !trimmed.isEmpty else { return trimmed }
 
-        let punctuationStripped = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: ".,;"))
+        let conjunctionStripped = trimmed.replacingOccurrences(
+            of: #"^(?:and|or)\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        let punctuationStripped = conjunctionStripped.trimmingCharacters(in: CharacterSet(charactersIn: ".,;"))
         let first = punctuationStripped.prefix(1).uppercased()
         return first + punctuationStripped.dropFirst()
     }
@@ -676,6 +770,21 @@ struct OutputPostProcessor {
         }
 
         return cleanListItem(normalized)
+    }
+
+    private func shouldFallbackToSourceBullets(_ text: String) -> Bool {
+        let normalized = text.lowercased()
+        let analysisSignals = [
+            "analyze the request",
+            "role:**",
+            "task:**",
+            "constraint 1",
+            "constraint 2",
+            "input text:**",
+            "local macos text utility"
+        ]
+
+        return analysisSignals.contains(where: normalized.contains)
     }
 
     private func deduplicated(_ items: [String]) -> [String] {

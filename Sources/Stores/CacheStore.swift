@@ -4,6 +4,7 @@ struct CacheKey: Hashable {
     let clipboardHash: Int
     let tool: ToolKind
     let modeID: String
+    let modelOption: LocalModelOption
     let modelProfile: ModelProfile
     let quantPreset: QuantPreset
     let refineInstruction: String

@@ -59,7 +59,10 @@ final class AppModel {
 
         Task { [weak self] in
             guard let self else { return }
-            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            await self.modelManager.refreshAvailability(
+                for: self.settingsStore.localModelOption,
+                quantPreset: self.settingsStore.quantPreset
+            )
             self.statusText = self.modelManager.statusSummary
         }
     }
@@ -69,7 +72,10 @@ final class AppModel {
     }
 
     var modelSummary: String {
-        let model = modelManager.model(for: settingsStore.quantPreset)
+        let model = modelManager.model(
+            for: settingsStore.localModelOption,
+            quantPreset: settingsStore.quantPreset
+        )
         return "\(model.displayName) · \(settingsStore.modelProfile.title) profile · \(settingsStore.quantPreset.title) quant"
     }
 
@@ -115,7 +121,10 @@ final class AppModel {
     func refreshModelAvailability() {
         Task { [weak self] in
             guard let self else { return }
-            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            await self.modelManager.refreshAvailability(
+                for: self.settingsStore.localModelOption,
+                quantPreset: self.settingsStore.quantPreset
+            )
             self.statusText = self.modelManager.statusSummary
         }
     }
@@ -125,7 +134,10 @@ final class AppModel {
             guard let self else { return }
             await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
             self.setupManager.resetFailure()
-            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            await self.modelManager.refreshAvailability(
+                for: self.settingsStore.localModelOption,
+                quantPreset: self.settingsStore.quantPreset
+            )
             self.statusText = self.modelManager.statusSummary
             self.cacheStore.invalidateAll()
             self.regenerateNow()
@@ -154,7 +166,10 @@ final class AppModel {
             statusText = setupManager.isRunning ? setupManager.stepTitle : modelManager.statusSummary
             outputText = setupManager.summary(
                 for: modelManager.runtimeState,
-                model: modelManager.model(for: settingsStore.quantPreset)
+                model: modelManager.model(
+                    for: settingsStore.localModelOption,
+                    quantPreset: settingsStore.quantPreset
+                )
             )
             return
         }
@@ -180,6 +195,7 @@ final class AppModel {
             clipboardHash: trimmed.hashValue,
             tool: request.tool,
             modeID: request.mode.id,
+            modelOption: settingsStore.localModelOption,
             modelProfile: request.modelProfile,
             quantPreset: request.quantPreset,
             refineInstruction: request.refineInstruction,
@@ -197,7 +213,10 @@ final class AppModel {
         let revision = generationRevision
 
         modelManager.markRunning()
-        let model = modelManager.model(for: request.quantPreset)
+        let model = modelManager.model(
+            for: settingsStore.localModelOption,
+            quantPreset: request.quantPreset
+        )
         outputText = "Generating locally with \(model.displayName)…"
         statusText = modelManager.statusSummary
 
@@ -211,7 +230,10 @@ final class AppModel {
                     executableURL: self.modelManager.runtimeExecutableURL,
                     serverExecutableURL: self.modelManager.serverExecutableURL,
                     model: model,
-                    setupCommand: self.modelManager.setupCommand(for: request.quantPreset),
+                    setupCommand: self.modelManager.setupCommand(
+                        for: self.settingsStore.localModelOption,
+                        quantPreset: request.quantPreset
+                    ),
                     warmCacheSeconds: self.settingsStore.warmCacheSeconds,
                     modelManager: self.modelManager
                 )
@@ -262,14 +284,20 @@ final class AppModel {
         Task { [weak self] in
             guard let self else { return }
 
-            let model = self.modelManager.model(for: self.settingsStore.quantPreset)
+            let model = self.modelManager.model(
+                for: self.settingsStore.localModelOption,
+                quantPreset: self.settingsStore.quantPreset
+            )
             self.statusText = "Setting up local AI"
             self.outputText = setupManager.summary(for: self.modelManager.runtimeState, model: model)
 
             await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
 
             let succeeded = await self.setupManager.runSetup(for: model)
-            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            await self.modelManager.refreshAvailability(
+                for: self.settingsStore.localModelOption,
+                quantPreset: self.settingsStore.quantPreset
+            )
             self.statusText = self.modelManager.statusSummary
 
             if succeeded {

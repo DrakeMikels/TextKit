@@ -117,7 +117,10 @@ struct ContentView: View {
                 SetupStatusView(
                     setupManager: appModel.setupManager,
                     runtimeState: appModel.modelManager.runtimeState,
-                    model: appModel.modelManager.model(for: appModel.settingsStore.quantPreset),
+                    model: appModel.modelManager.model(
+                        for: appModel.settingsStore.localModelOption,
+                        quantPreset: appModel.settingsStore.quantPreset
+                    ),
                     startSetup: appModel.startSetup
                 )
             } label: {

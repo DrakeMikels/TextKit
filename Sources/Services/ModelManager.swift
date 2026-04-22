@@ -7,6 +7,23 @@ struct LocalModelDescriptor {
     let suggestedFilename: String
     let runtime: String
     let quantPreset: QuantPreset
+    let requiresReasoningOff: Bool
+
+    init(
+        displayName: String,
+        repository: String,
+        suggestedFilename: String,
+        runtime: String,
+        quantPreset: QuantPreset,
+        requiresReasoningOff: Bool = false
+    ) {
+        self.displayName = displayName
+        self.repository = repository
+        self.suggestedFilename = suggestedFilename
+        self.runtime = runtime
+        self.quantPreset = quantPreset
+        self.requiresReasoningOff = requiresReasoningOff
+    }
 }
 
 enum ModelRuntimeState: Equatable {
@@ -21,10 +38,6 @@ enum ModelRuntimeState: Equatable {
 @MainActor
 @Observable
 final class ModelManager {
-    private let modelDisplayName = "Qwen2.5 0.5B Instruct"
-    private let modelRepository = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-    private let runtimeName = "llama.cpp local runtime"
-
     private(set) var isWarm = false
     private(set) var runtimeState: ModelRuntimeState = .unknown
 
@@ -40,18 +53,19 @@ final class ModelManager {
         Self.resolveExecutable(named: "llama-cli")
     }
 
-    func model(for quantPreset: QuantPreset) -> LocalModelDescriptor {
+    func model(for modelOption: LocalModelOption, quantPreset: QuantPreset) -> LocalModelDescriptor {
         LocalModelDescriptor(
-            displayName: modelDisplayName,
-            repository: modelRepository,
-            suggestedFilename: quantPreset.suggestedFilename,
-            runtime: runtimeName,
-            quantPreset: quantPreset
+            displayName: modelOption.displayName,
+            repository: modelOption.repository,
+            suggestedFilename: modelOption.suggestedFilename(for: quantPreset),
+            runtime: modelOption.runtimeName,
+            quantPreset: quantPreset,
+            requiresReasoningOff: modelOption.requiresReasoningOff
         )
     }
 
-    func setupCommand(for quantPreset: QuantPreset) -> String {
-        "./script/setup_model_runtime.sh --quant \(quantPreset.rawValue)"
+    func setupCommand(for modelOption: LocalModelOption, quantPreset: QuantPreset) -> String {
+        "./script/setup_model_runtime.sh --model \(modelOption.rawValue) --quant \(quantPreset.rawValue)"
     }
 
     var statusSummary: String {
@@ -71,8 +85,8 @@ final class ModelManager {
         }
     }
 
-    func runtimeDetail(for quantPreset: QuantPreset) -> String {
-        let model = model(for: quantPreset)
+    func runtimeDetail(for modelOption: LocalModelOption, quantPreset: QuantPreset) -> String {
+        let model = model(for: modelOption, quantPreset: quantPreset)
 
         switch runtimeState {
         case .unknown:
@@ -119,7 +133,7 @@ final class ModelManager {
         runtimeState = .failed(message)
     }
 
-    func refreshAvailability(for quantPreset: QuantPreset) async {
+    func refreshAvailability(for modelOption: LocalModelOption, quantPreset: QuantPreset) async {
         guard runtimeExecutableURL != nil else {
             runtimeState = .missingRuntime
             return
@@ -131,7 +145,7 @@ final class ModelManager {
         }
 
         do {
-            let model = model(for: quantPreset)
+            let model = model(for: modelOption, quantPreset: quantPreset)
             let result = try await ProcessRunner.run(
                 executableURL: probeExecutableURL,
                 arguments: ["--cache-list"]
