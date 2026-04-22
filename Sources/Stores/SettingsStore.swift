@@ -72,16 +72,17 @@ final class SettingsStore {
         }
     }
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        self.localModelOption = LocalModelOption(rawValue: defaults.string(forKey: Keys.localModelOption) ?? "") ?? .stable
-        self.modelProfile = ModelProfile(rawValue: defaults.string(forKey: Keys.modelProfile) ?? "") ?? .balanced
-        self.quantPreset = QuantPreset(rawValue: defaults.string(forKey: Keys.quantPreset) ?? "") ?? .balanced
-        self.autoClipEnabled = defaults.object(forKey: Keys.autoClipEnabled) as? Bool ?? true
-        self.defaultFallbackTool = ToolKind(rawValue: defaults.string(forKey: Keys.defaultFallbackTool) ?? "") ?? .rewrite
-        self.warmCacheSeconds = defaults.object(forKey: Keys.warmCacheSeconds) as? Double ?? 45
-        self.strictModeEnabled = defaults.object(forKey: Keys.strictModeEnabled) as? Bool ?? false
-        self.modeConfigurations = SettingsStore.loadPromptProfile(from: defaults)
+    init(defaults: UserDefaults? = nil) {
+        let resolvedDefaults = defaults ?? Self.runtimeDefaults()
+        self.defaults = resolvedDefaults
+        self.localModelOption = LocalModelOption(rawValue: resolvedDefaults.string(forKey: Keys.localModelOption) ?? "") ?? .stable
+        self.modelProfile = ModelProfile(rawValue: resolvedDefaults.string(forKey: Keys.modelProfile) ?? "") ?? .balanced
+        self.quantPreset = QuantPreset(rawValue: resolvedDefaults.string(forKey: Keys.quantPreset) ?? "") ?? .balanced
+        self.autoClipEnabled = resolvedDefaults.object(forKey: Keys.autoClipEnabled) as? Bool ?? true
+        self.defaultFallbackTool = ToolKind(rawValue: resolvedDefaults.string(forKey: Keys.defaultFallbackTool) ?? "") ?? .rewrite
+        self.warmCacheSeconds = resolvedDefaults.object(forKey: Keys.warmCacheSeconds) as? Double ?? 45
+        self.strictModeEnabled = resolvedDefaults.object(forKey: Keys.strictModeEnabled) as? Bool ?? false
+        self.modeConfigurations = SettingsStore.loadPromptProfile(from: resolvedDefaults)
     }
 
     func promptConfiguration(for mode: ToolMode) -> ModePromptConfiguration {
@@ -214,6 +215,21 @@ final class SettingsStore {
                 return (mode.id, migratePromptConfiguration(configuration, for: mode, from: document.version))
             }
         )
+    }
+
+    private static func runtimeDefaults() -> UserDefaults {
+        let environment = ProcessInfo.processInfo.environment
+
+        guard
+            let suiteName = environment["TEXTKIT_USER_DEFAULTS_SUITE"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !suiteName.isEmpty,
+            let suiteDefaults = UserDefaults(suiteName: suiteName)
+        else {
+            return .standard
+        }
+
+        return suiteDefaults
     }
 
     private static func migratePromptConfiguration(
