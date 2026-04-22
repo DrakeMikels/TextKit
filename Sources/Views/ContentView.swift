@@ -34,6 +34,12 @@ struct ContentView: View {
         .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
             appModel.handleRuntimeSelectionChange()
         }
+        .onAppear {
+            appModel.handlePopoverAppear()
+        }
+        .onDisappear {
+            appModel.handlePopoverDisappear()
+        }
         .sheet(isPresented: $appModel.showInitialSetupPrompt) {
             initialSetupPrompt
         }

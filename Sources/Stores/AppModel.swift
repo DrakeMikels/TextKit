@@ -21,6 +21,8 @@ final class AppModel {
     private var debounceTask: Task<Void, Never>?
     private var generationRevision = 0
     private var lastReductionFingerprint: String?
+    private var pendingInitialSetupPrompt = false
+    private var isPopoverVisible = false
 
     var inputText: String = ""
     var refineInstruction: String = ""
@@ -492,6 +494,16 @@ final class AppModel {
 
     func dismissInitialSetupPrompt() {
         showInitialSetupPrompt = false
+        pendingInitialSetupPrompt = false
+    }
+
+    func handlePopoverAppear() {
+        isPopoverVisible = true
+        presentInitialSetupPromptIfNeeded()
+    }
+
+    func handlePopoverDisappear() {
+        isPopoverVisible = false
     }
 
     private func startClipboardMonitoring() {
@@ -564,10 +576,23 @@ final class AppModel {
 
         switch modelManager.runtimeState {
         case .missingRuntime, .missingModel:
-            showInitialSetupPrompt = true
+            pendingInitialSetupPrompt = true
             settingsStore.hasShownInitialSetupPrompt = true
+            presentInitialSetupPromptIfNeeded()
         default:
             break
+        }
+    }
+
+    private func presentInitialSetupPromptIfNeeded() {
+        guard pendingInitialSetupPrompt, isPopoverVisible, !showInitialSetupPrompt else { return }
+
+        pendingInitialSetupPrompt = false
+
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, self.isPopoverVisible else { return }
+            self.showInitialSetupPrompt = true
         }
     }
 }
