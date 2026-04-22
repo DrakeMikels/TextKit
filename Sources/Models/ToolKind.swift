@@ -5,8 +5,8 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     case prompt
     case extract
     case reply
-    case reduce
     case summarize
+    case reduce
 
     var id: String { rawValue }
 
