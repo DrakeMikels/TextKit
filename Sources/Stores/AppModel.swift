@@ -159,6 +159,77 @@ final class AppModel {
         regenerateNow()
     }
 
+    func runDebugEvaluation(
+        inputText: String,
+        refineInstruction: String,
+        mode: ToolMode
+    ) async throws -> DebugEvaluationResult {
+        let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else {
+            throw DebugEvaluationError.emptyInput
+        }
+
+        let request = GenerationRequest(
+            inputText: trimmedInput,
+            refineInstruction: refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines),
+            tool: mode.tool,
+            mode: mode,
+            modelProfile: settingsStore.modelProfile,
+            quantPreset: settingsStore.quantPreset,
+            promptConfiguration: settingsStore.promptConfiguration(for: mode)
+        )
+
+        let prompt = promptComposer.compose(for: request)
+        let model = modelManager.model(
+            for: settingsStore.localModelOption,
+            quantPreset: request.quantPreset
+        )
+
+        modelManager.markRunning()
+
+        do {
+            let generation = try await inferenceEngine.generate(
+                for: request,
+                prompt: prompt,
+                executableURL: modelManager.runtimeExecutableURL,
+                serverExecutableURL: modelManager.serverExecutableURL,
+                model: model,
+                setupCommand: modelManager.setupCommand(
+                    for: settingsStore.localModelOption,
+                    quantPreset: request.quantPreset
+                ),
+                warmCacheSeconds: settingsStore.warmCacheSeconds,
+                modelManager: modelManager
+            )
+            let rawOutput = generation.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalizedOutput = outputPostProcessor.finalize(rawOutput, for: request)
+
+            modelManager.markReady(isWarm: generation.keepsRuntimeWarm)
+
+            return DebugEvaluationResult(
+                rawOutput: rawOutput,
+                finalizedOutput: finalizedOutput,
+                keepsRuntimeWarm: generation.keepsRuntimeWarm
+            )
+        } catch let error as InferenceEngineError {
+            switch error {
+            case .missingRuntime:
+                modelManager.markMissingRuntime()
+            case .modelNotInstalled:
+                modelManager.markMissingModel()
+            case let .executionFailed(message):
+                modelManager.markFailure(message)
+            case .emptyOutput:
+                modelManager.markFailure("The local model returned no text.")
+            }
+
+            throw error
+        } catch {
+            modelManager.markFailure("The local model failed.")
+            throw error
+        }
+    }
+
     func regenerateNow() {
         generationTask?.cancel()
 

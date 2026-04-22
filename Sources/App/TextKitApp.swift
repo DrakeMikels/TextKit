@@ -15,7 +15,14 @@ struct TextKitApp: App {
                 settingsStore: appModel.settingsStore,
                 modelManager: appModel.modelManager,
                 setupManager: appModel.setupManager,
-                startSetup: appModel.startSetup
+                startSetup: appModel.startSetup,
+                runDebugEvaluation: { inputText, refineInstruction, mode in
+                    try await appModel.runDebugEvaluation(
+                        inputText: inputText,
+                        refineInstruction: refineInstruction,
+                        mode: mode
+                    )
+                }
             )
         }
         .defaultSize(width: 760, height: 720)

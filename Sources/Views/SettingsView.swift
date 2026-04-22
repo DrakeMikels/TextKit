@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    typealias DebugEvaluationAction = (String, String, ToolMode) async throws -> DebugEvaluationResult
+
     private enum SettingsPane: String, CaseIterable, Identifiable {
         case general
         case prompts
@@ -35,12 +37,17 @@ struct SettingsView: View {
     @Bindable var modelManager: ModelManager
     @Bindable var setupManager: SetupManager
     let startSetup: () -> Void
+    let runDebugEvaluation: DebugEvaluationAction
 
     @State private var selectedPane: SettingsPane = .general
     @State private var selectedAdvancedModeID = ToolMode.rewriteClean.id
     @State private var previewInput = ToolMode.rewriteClean.sampleInput
     @State private var previewRefineInstruction = ""
     @State private var importExportStatus = ""
+    @State private var debugRawOutput = ""
+    @State private var debugFinalOutput = ""
+    @State private var debugStatus = "Run a live check with the current model and style."
+    @State private var debugIsRunning = false
 
     private let promptComposer = PromptComposer()
 
@@ -72,6 +79,17 @@ struct SettingsView: View {
         )
     }
 
+    private var canRunDebugEvaluation: Bool {
+        !previewInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !setupManager.isRunning
+            && modelManager.runtimeState != .missingRuntime
+            && modelManager.runtimeState != .missingModel
+    }
+
+    private var hasDebugResult: Bool {
+        !debugRawOutput.isEmpty || !debugFinalOutput.isEmpty
+    }
+
     var body: some View {
         TabView(selection: $selectedPane) {
             generalPane
@@ -96,7 +114,12 @@ struct SettingsView: View {
         .frame(minWidth: 760, idealWidth: 760, minHeight: 720, idealHeight: 720)
         .onChange(of: selectedAdvancedModeID) { _, _ in
             previewInput = selectedMode.sampleInput
+            invalidateDebugResult()
         }
+        .onChange(of: previewInput) { _, _ in invalidateDebugResult() }
+        .onChange(of: previewRefineInstruction) { _, _ in invalidateDebugResult() }
+        .onChange(of: settingsStore.generationSettingsRevision) { _, _ in invalidateDebugResult() }
+        .onChange(of: settingsStore.runtimeSelectionRevision) { _, _ in invalidateDebugResult() }
         .onChange(of: settingsStore.quantPreset) { _, quantPreset in
             Task {
                 await modelManager.refreshAvailability(
@@ -447,6 +470,78 @@ struct SettingsView: View {
                 readOnlyPromptBlock(previewPrompt.userPrompt, height: 220)
             }
 
+            settingsCard("Live Debug Check", systemImage: "waveform.path.ecg") {
+                VStack(alignment: .leading, spacing: 14) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            Button(debugIsRunning ? "Running..." : "Run Live Check") {
+                                Task {
+                                    await runDebugEvaluationNow()
+                                }
+                            }
+                            .disabled(debugIsRunning || !canRunDebugEvaluation)
+
+                            Spacer(minLength: 0)
+
+                            Text(activeModel.displayName)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button(debugIsRunning ? "Running..." : "Run Live Check") {
+                                Task {
+                                    await runDebugEvaluationNow()
+                                }
+                            }
+                            .disabled(debugIsRunning || !canRunDebugEvaluation)
+
+                            Text(activeModel.displayName)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Text("This runs the same local model, prompt settings, runtime path, and output shaping that TextKit uses in the menu bar app.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(debugStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if hasDebugResult {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .top, spacing: 16) {
+                                debugOutputBlock(
+                                    title: "Raw Model Output",
+                                    systemImage: "bolt.horizontal",
+                                    text: debugRawOutput
+                                )
+                                debugOutputBlock(
+                                    title: "Final TextKit Output",
+                                    systemImage: "checkmark.seal",
+                                    text: debugFinalOutput
+                                )
+                            }
+
+                            VStack(alignment: .leading, spacing: 16) {
+                                debugOutputBlock(
+                                    title: "Raw Model Output",
+                                    systemImage: "bolt.horizontal",
+                                    text: debugRawOutput
+                                )
+                                debugOutputBlock(
+                                    title: "Final TextKit Output",
+                                    systemImage: "checkmark.seal",
+                                    text: debugFinalOutput
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Text("When More Consistent Results is on, this preview uses the steadier settings too.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -576,6 +671,60 @@ struct SettingsView: View {
                 .textSelection(.enabled)
         }
         .frame(height: height)
+    }
+
+    private func debugOutputBlock(
+        title: String,
+        systemImage: String,
+        text: String
+    ) -> some View {
+        GroupBox {
+            readOnlyPromptBlock(text.isEmpty ? "No output yet." : text, height: 180)
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func invalidateDebugResult() {
+        debugRawOutput = ""
+        debugFinalOutput = ""
+        debugStatus = "Run a live check with the current model and style."
+    }
+
+    @MainActor
+    private func runDebugEvaluationNow() async {
+        debugIsRunning = true
+        debugRawOutput = ""
+        debugFinalOutput = ""
+        debugStatus = "Running the live local check..."
+
+        do {
+            let result = try await runDebugEvaluation(
+                previewInput,
+                previewRefineInstruction,
+                selectedMode
+            )
+
+            debugRawOutput = result.rawOutput
+            debugFinalOutput = result.finalizedOutput
+            debugStatus = debugSummary(for: result)
+        } catch {
+            debugStatus = error.localizedDescription
+        }
+
+        debugIsRunning = false
+    }
+
+    private func debugSummary(for result: DebugEvaluationResult) -> String {
+        let shapingSummary = result.rawOutput == result.finalizedOutput
+            ? "The raw model output already matched TextKit's final result."
+            : "TextKit adjusted the raw model output before showing the final result."
+        let runtimeSummary = result.keepsRuntimeWarm
+            ? "The local runtime stayed warm for faster follow-up checks."
+            : "The check finished without keeping the runtime warm."
+        return "\(shapingSummary) \(runtimeSummary)"
     }
 
     private var systemInstructionBinding: Binding<String> {
