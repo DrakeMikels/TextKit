@@ -29,4 +29,17 @@ struct RouteEngineTests {
         let result = engine.route("Clean up this paragraph so it reads better.", fallback: .rewrite)
         #expect(result == .rewrite)
     }
+
+    @Test
+    func routesLargeStructuredInputToReduceWithoutAutoRun() {
+        let engine = RouteEngine()
+        let input = Array(repeating: "warning status=ready build=a91f3c7 analytics queue worker payload trace id=42;", count: 30)
+            .joined(separator: " ")
+
+        let result = engine.decide(input, fallback: .rewrite)
+
+        #expect(result.tool == .reduce)
+        #expect(result.preferredMode == .reduceStructured)
+        #expect(result.shouldAutoGenerate == false)
+    }
 }

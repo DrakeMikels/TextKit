@@ -56,4 +56,15 @@ struct ReductionEngineTests {
 
         #expect(restored == engine.normalizeWhitespace(input))
     }
+
+    @Test
+    func structuredModeProducesSavingsOnLargeStructuredBlob() {
+        let input = Array(repeating: "warning status=ready build=a91f3c7 analytics queue worker payload trace id=42 candidate records count returned 200;", count: 16)
+            .joined(separator: " ")
+
+        let result = engine.reduce(input, mode: .reduceStructured)
+
+        #expect(result.stats.savedEstimatedTokenCount > 0)
+        #expect(result.stats.reductionPercent > 0)
+    }
 }

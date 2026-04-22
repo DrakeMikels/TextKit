@@ -123,8 +123,14 @@ final class AppModel {
         if selectedMode.tool != tool {
             selectedMode = lastSelectedModeByTool[tool] ?? tool.defaultMode
         }
+        generationTask?.cancel()
+        debounceTask?.cancel()
         if tool == .reduce {
             clearReductionResult()
+            Task { [weak self] in
+                guard let self else { return }
+                await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+            }
         } else {
             reductionStats = nil
         }
@@ -230,7 +236,13 @@ final class AppModel {
         outputText = result.text
         reductionStats = result.stats
         lastReductionFingerprint = reductionFingerprint(for: trimmedInput, mode: selectedMode)
-        statusText = "Reduced locally · \(String(format: "%.1f", result.stats.reductionPercent))% smaller"
+        if result.stats.savedEstimatedTokenCount <= 0 {
+            statusText = "Reduced locally · no obvious redundancy found"
+        } else if result.stats.reductionPercent < 10 {
+            statusText = "Reduced locally · limited savings"
+        } else {
+            statusText = "Reduced locally · \(String(format: "%.1f", result.stats.reductionPercent))% smaller"
+        }
     }
 
     func runDebugEvaluation(
@@ -482,19 +494,41 @@ final class AppModel {
             guard self.settingsStore.autoClipEnabled else { return }
             guard !self.shouldIgnoreClipboardText(clipboardText) else { return }
 
+            self.generationTask?.cancel()
+            self.debounceTask?.cancel()
             self.cacheStore.invalidateAll()
             self.inputText = clipboardText
             self.refineInstruction = ""
             self.refineDraft = ""
             self.clearReductionResult()
 
-            let routedTool = self.routeEngine.route(
+            let decision = self.routeEngine.decide(
                 clipboardText,
                 fallback: self.settingsStore.defaultFallbackTool
             )
 
-            self.selectedTool = routedTool
-            self.selectedMode = self.lastSelectedModeByTool[routedTool] ?? routedTool.defaultMode
+            self.selectedTool = decision.tool
+            let selectedMode = decision.preferredMode
+                ?? self.lastSelectedModeByTool[decision.tool]
+                ?? decision.tool.defaultMode
+            self.selectedMode = selectedMode
+            self.lastSelectedModeByTool[decision.tool] = selectedMode
+
+            guard decision.shouldAutoGenerate else {
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+                }
+
+                if decision.tool == .reduce, decision.preferredMode != nil {
+                    self.statusText = "Large structured input detected"
+                    self.outputText = "Large structured input was staged in Reduce so the local model would not auto-run. Click send to compress it locally."
+                } else {
+                    self.handleInputChange()
+                }
+                return
+            }
+
             self.regenerateNow()
         }
     }

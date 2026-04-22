@@ -67,6 +67,11 @@ enum ToolKind: String, CaseIterable, Codable, Identifiable {
     }
 
     var defaultMode: ToolMode {
-        modes[0]
+        switch self {
+        case .reduce:
+            .reduceStructured
+        default:
+            modes[0]
+        }
     }
 }
