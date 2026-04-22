@@ -339,6 +339,7 @@ struct OutputPostProcessor {
         }
 
         cleaned = stripLeadingLabel(from: cleaned)
+        cleaned = stripLeadingMetaWrapper(from: cleaned)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -391,6 +392,31 @@ struct OutputPostProcessor {
         value.lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "’", with: "'")
+    }
+
+    private func stripLeadingMetaWrapper(from text: String) -> String {
+        let patterns = [
+            #"^here(?:'s| is)\s+(?:a\s+|the\s+)?(?:polished|professional|cleaned|rewritten|shortened|revised)\s+(?:version|rewrite)(?:\s+of\s+(?:your\s+)?(?:message|text|copy))?:\s*"#,
+            #"^(?:polished|professional|cleaned|rewritten|shortened|revised)\s+(?:version|rewrite)(?:\s+of\s+(?:your\s+)?(?:message|text|copy))?:\s*"#
+        ]
+
+        var workingText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for pattern in patterns {
+            guard let range = workingText.range(
+                of: pattern,
+                options: [.regularExpression, .caseInsensitive]
+            ) else {
+                continue
+            }
+
+            workingText.removeSubrange(range)
+            workingText = stripWrappingQuotes(from: workingText)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            break
+        }
+
+        return workingText
     }
 
     private func stripWrappingQuotes(from text: String) -> String {

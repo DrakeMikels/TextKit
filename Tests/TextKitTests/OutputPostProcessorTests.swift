@@ -200,6 +200,26 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func professionalRewriteStripsMetaWrapperLeadIn() {
+        let request = GenerationRequest(
+            inputText: "sure — here’s a different long-form sample, written more like a messy terminal/debug session with mixed logs, stack traces, retries, and noisy output for compression testing:",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteProfessional)
+        )
+
+        let result = processor._finalizeForTests(
+            #"Here is the polished version of your message: "Sure, here's a different long-form sample, written more like a messy terminal/debug session with mixed logs, stack traces, retries, and noisy output for compression testing.""#,
+            for: request
+        )
+
+        #expect(result == "Sure, here's a different long-form sample, written more like a messy terminal/debug session with mixed logs, stack traces, retries, and noisy output for compression testing.")
+    }
+
+    @Test
     func ablatedRewriteProcessorLeavesModelOutputMostlyUntouched() {
         let request = GenerationRequest(
             inputText: "can you send me the numbers by tomorrow morning so i can get this into the board update",
