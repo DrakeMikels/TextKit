@@ -23,6 +23,10 @@ struct SettingsView: View {
         settingsStore.promptConfiguration(for: selectedMode)
     }
 
+    private var activeModel: LocalModelDescriptor {
+        modelManager.model(for: settingsStore.quantPreset)
+    }
+
     private var previewPrompt: ComposedPrompt {
         promptComposer.preview(
             for: selectedMode,
@@ -44,6 +48,11 @@ struct SettingsView: View {
         .onChange(of: selectedAdvancedModeID) { _, _ in
             previewInput = selectedMode.sampleInput
         }
+        .onChange(of: settingsStore.quantPreset) { _, quantPreset in
+            Task {
+                await modelManager.refreshAvailability(for: quantPreset)
+            }
+        }
     }
 
     private var modelSection: some View {
@@ -61,13 +70,13 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(modelManager.defaultModel.displayName)
+                Text(activeModel.displayName)
                     .font(.subheadline.weight(.semibold))
-                Text(modelManager.defaultModel.repository)
+                Text(activeModel.repository)
                     .foregroundStyle(.secondary)
-                Text("Default suggested file: \(modelManager.defaultModel.suggestedFilename)")
+                Text("Selected quant file: \(activeModel.suggestedFilename)")
                     .foregroundStyle(.secondary)
-                Text(modelManager.runtimeDetail)
+                Text(modelManager.runtimeDetail(for: settingsStore.quantPreset))
                     .foregroundStyle(.secondary)
             }
 
@@ -81,13 +90,13 @@ struct SettingsView: View {
             HStack {
                 Button("Refresh Status") {
                     Task {
-                        await modelManager.refreshAvailability()
+                        await modelManager.refreshAvailability(for: settingsStore.quantPreset)
                     }
                 }
 
                 Spacer()
 
-                Text(modelManager.setupCommand)
+                Text(modelManager.setupCommand(for: settingsStore.quantPreset))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
             }
@@ -285,7 +294,7 @@ struct SettingsView: View {
 
     private var runtimeSection: some View {
         Section("Runtime") {
-            Text("Local inference runs through \(modelManager.defaultModel.runtime) in offline mode after the model is cached.")
+            Text("Local inference runs through \(activeModel.runtime) in offline mode after the selected quant is cached.")
             Text("Users can install the app first, then download the model on first run or from settings. The warm cache slider above controls how long the runtime should stay ready after generation.")
                 .foregroundStyle(.secondary)
         }

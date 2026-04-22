@@ -1,13 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:-setup}"
+MODE="setup"
 LLAMA_BIN="/opt/homebrew/bin/llama-completion"
 PROBE_BIN="/opt/homebrew/bin/llama-cli"
 MODEL_REPO="Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-MODEL_FILE="qwen2.5-0.5b-instruct-q5_k_m.gguf"
+QUANT_PRESET="balanced"
 SYSTEM_PROMPT="You are a helpful assistant."
 SMOKE_PROMPT="Reply with only the word OK."
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --quant)
+      QUANT_PRESET="${2:-}"
+      shift 2
+      ;;
+    setup|--smoke-test|smoke-test)
+      MODE="$1"
+      shift
+      ;;
+    *)
+      echo "usage: $0 [setup|--smoke-test] [--quant fast|balanced|quality]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+case "$QUANT_PRESET" in
+  fast)
+    MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_s.gguf"
+    CACHE_TAG="Q4_K_S"
+    ;;
+  balanced)
+    MODEL_FILE="qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    CACHE_TAG="Q4_K_M"
+    ;;
+  quality)
+    MODEL_FILE="qwen2.5-0.5b-instruct-q5_k_m.gguf"
+    CACHE_TAG="Q5_K_M"
+    ;;
+  *)
+    echo "invalid quant preset: $QUANT_PRESET" >&2
+    exit 2
+    ;;
+esac
 
 if ! command -v brew >/dev/null 2>&1; then
   echo "Homebrew is required to install llama.cpp." >&2
@@ -19,7 +55,7 @@ if [[ ! -x "$LLAMA_BIN" ]] || [[ ! -x "$PROBE_BIN" ]]; then
 fi
 
 model_cached() {
-  "$PROBE_BIN" --cache-list 2>/dev/null | grep -q "$MODEL_REPO:Q5_K_M"
+  "$PROBE_BIN" --cache-list 2>/dev/null | grep -q "$MODEL_REPO:$CACHE_TAG"
 }
 
 download_model() {
@@ -60,13 +96,13 @@ case "$MODE" in
     ;;
   --smoke-test|smoke-test)
     if ! model_cached; then
-      echo "Model is not cached yet. Run ./script/setup_model_runtime.sh first." >&2
+      echo "Model is not cached yet. Run ./script/setup_model_runtime.sh --quant $QUANT_PRESET first." >&2
       exit 1
     fi
     smoke_test
     ;;
   *)
-    echo "usage: $0 [setup|--smoke-test]" >&2
+    echo "usage: $0 [setup|--smoke-test] [--quant fast|balanced|quality]" >&2
     exit 2
     ;;
 esac

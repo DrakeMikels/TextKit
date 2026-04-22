@@ -78,7 +78,7 @@ struct InferenceEngine {
             "-hff", model.suggestedFilename,
             "-sys", prompt.systemPrompt,
             "-p", prompt.userPrompt,
-            "-n", String(request.promptConfiguration.maxTokens),
+            "-n", String(request.effectiveMaxTokens),
             "--temp", String(format: "%.2f", request.promptConfiguration.temperature),
             "-s", String(request.promptConfiguration.seed)
         ]

@@ -10,4 +10,15 @@ enum ModelProfile: String, CaseIterable, Codable, Identifiable {
     var title: String {
         rawValue.capitalized
     }
+
+    var tokenBudgetMultiplier: Double {
+        switch self {
+        case .fast:
+            0.75
+        case .balanced:
+            1
+        case .quality:
+            1.25
+        }
+    }
 }

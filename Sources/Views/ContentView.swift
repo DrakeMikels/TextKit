@@ -93,8 +93,11 @@ struct ContentView: View {
         .onChange(of: appModel.inputText) { _, _ in
             appModel.scheduleRegeneration()
         }
-        .onChange(of: appModel.settingsStore.promptProfileRevision) { _, _ in
-            appModel.scheduleRegeneration()
+        .onChange(of: appModel.settingsStore.generationSettingsRevision) { _, _ in
+            appModel.handleGenerationSettingsChange()
+        }
+        .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
+            appModel.refreshModelAvailability()
         }
     }
 

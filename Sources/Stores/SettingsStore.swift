@@ -19,14 +19,22 @@ final class SettingsStore {
     private let defaults: UserDefaults
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
-    private(set) var promptProfileRevision = 0
+    private(set) var generationSettingsRevision = 0
+    private(set) var runtimeSelectionRevision = 0
 
     var modelProfile: ModelProfile {
-        didSet { defaults.set(modelProfile.rawValue, forKey: Keys.modelProfile) }
+        didSet {
+            defaults.set(modelProfile.rawValue, forKey: Keys.modelProfile)
+            generationSettingsRevision += 1
+        }
     }
 
     var quantPreset: QuantPreset {
-        didSet { defaults.set(quantPreset.rawValue, forKey: Keys.quantPreset) }
+        didSet {
+            defaults.set(quantPreset.rawValue, forKey: Keys.quantPreset)
+            generationSettingsRevision += 1
+            runtimeSelectionRevision += 1
+        }
     }
 
     var autoClipEnabled: Bool {
@@ -44,14 +52,14 @@ final class SettingsStore {
     var strictModeEnabled: Bool {
         didSet {
             defaults.set(strictModeEnabled, forKey: Keys.strictModeEnabled)
-            promptProfileRevision += 1
+            generationSettingsRevision += 1
         }
     }
 
     private var modeConfigurations: [String: ModePromptConfiguration] {
         didSet {
             persistPromptProfile()
-            promptProfileRevision += 1
+            generationSettingsRevision += 1
         }
     }
 

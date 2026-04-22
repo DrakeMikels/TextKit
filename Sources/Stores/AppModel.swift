@@ -13,6 +13,7 @@ final class AppModel {
     private let promptComposer: PromptComposer
     private let inferenceEngine: InferenceEngine
     private let cacheStore: CacheStore
+    private var lastSelectedModeByTool: [ToolKind: ToolMode]
     private var generationTask: Task<Void, Never>?
     private var debounceTask: Task<Void, Never>?
     private var generationRevision = 0
@@ -43,13 +44,16 @@ final class AppModel {
         self.cacheStore = cacheStore
         self.selectedTool = settingsStore.defaultFallbackTool
         self.selectedMode = settingsStore.defaultFallbackTool.defaultMode
+        self.lastSelectedModeByTool = Dictionary(
+            uniqueKeysWithValues: ToolKind.allCases.map { ($0, $0.defaultMode) }
+        )
         self.statusText = "Checking local model"
 
         startClipboardMonitoring()
 
         Task { [weak self] in
             guard let self else { return }
-            await self.modelManager.refreshAvailability()
+            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
             self.statusText = self.modelManager.statusSummary
         }
     }
@@ -59,7 +63,8 @@ final class AppModel {
     }
 
     var modelSummary: String {
-        "\(modelManager.defaultModel.displayName) · \(settingsStore.modelProfile.title)"
+        let model = modelManager.model(for: settingsStore.quantPreset)
+        return "\(model.displayName) · \(settingsStore.modelProfile.title) profile · \(settingsStore.quantPreset.title) quant"
     }
 
     var hasPendingRefineChanges: Bool {
@@ -74,13 +79,14 @@ final class AppModel {
     func selectTool(_ tool: ToolKind) {
         selectedTool = tool
         if selectedMode.tool != tool {
-            selectedMode = tool.defaultMode
+            selectedMode = lastSelectedModeByTool[tool] ?? tool.defaultMode
         }
         regenerateNow()
     }
 
     func selectMode(_ mode: ToolMode) {
         selectedMode = mode
+        lastSelectedModeByTool[mode.tool] = mode
         regenerateNow()
     }
 
@@ -96,9 +102,14 @@ final class AppModel {
     func refreshModelAvailability() {
         Task { [weak self] in
             guard let self else { return }
-            await self.modelManager.refreshAvailability()
+            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
             self.statusText = self.modelManager.statusSummary
         }
+    }
+
+    func handleGenerationSettingsChange() {
+        cacheStore.invalidateAll()
+        scheduleRegeneration()
     }
 
     func submitRefine() {
@@ -152,7 +163,8 @@ final class AppModel {
         let revision = generationRevision
 
         modelManager.markRunning()
-        outputText = "Generating locally with \(modelManager.defaultModel.displayName)…"
+        let model = modelManager.model(for: request.quantPreset)
+        outputText = "Generating locally with \(model.displayName)…"
         statusText = modelManager.statusSummary
 
         generationTask = Task { [weak self] in
@@ -163,8 +175,8 @@ final class AppModel {
                     for: request,
                     prompt: prompt,
                     executableURL: self.modelManager.runtimeExecutableURL,
-                    model: self.modelManager.defaultModel,
-                    setupCommand: self.modelManager.setupCommand
+                    model: model,
+                    setupCommand: self.modelManager.setupCommand(for: request.quantPreset)
                 )
 
                 guard !Task.isCancelled, revision == self.generationRevision else { return }
@@ -223,7 +235,7 @@ final class AppModel {
             )
 
             self.selectedTool = routedTool
-            self.selectedMode = routedTool.defaultMode
+            self.selectedMode = self.lastSelectedModeByTool[routedTool] ?? routedTool.defaultMode
             self.regenerateNow()
         }
     }

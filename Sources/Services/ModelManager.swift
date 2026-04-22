@@ -6,6 +6,7 @@ struct LocalModelDescriptor {
     let repository: String
     let suggestedFilename: String
     let runtime: String
+    let quantPreset: QuantPreset
 }
 
 enum ModelRuntimeState: Equatable {
@@ -20,12 +21,9 @@ enum ModelRuntimeState: Equatable {
 @MainActor
 @Observable
 final class ModelManager {
-    let defaultModel = LocalModelDescriptor(
-        displayName: "Qwen2.5 0.5B Instruct",
-        repository: "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-        suggestedFilename: "qwen2.5-0.5b-instruct-q5_k_m.gguf",
-        runtime: "llama.cpp via llama-completion"
-    )
+    private let modelDisplayName = "Qwen2.5 0.5B Instruct"
+    private let modelRepository = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+    private let runtimeName = "llama.cpp via llama-completion"
 
     private(set) var isWarm = false
     private(set) var runtimeState: ModelRuntimeState = .unknown
@@ -38,8 +36,18 @@ final class ModelManager {
         Self.resolveExecutable(named: "llama-cli")
     }
 
-    var setupCommand: String {
-        "./script/setup_model_runtime.sh"
+    func model(for quantPreset: QuantPreset) -> LocalModelDescriptor {
+        LocalModelDescriptor(
+            displayName: modelDisplayName,
+            repository: modelRepository,
+            suggestedFilename: quantPreset.suggestedFilename,
+            runtime: runtimeName,
+            quantPreset: quantPreset
+        )
+    }
+
+    func setupCommand(for quantPreset: QuantPreset) -> String {
+        "./script/setup_model_runtime.sh --quant \(quantPreset.rawValue)"
     }
 
     var statusSummary: String {
@@ -59,18 +67,20 @@ final class ModelManager {
         }
     }
 
-    var runtimeDetail: String {
+    func runtimeDetail(for quantPreset: QuantPreset) -> String {
+        let model = model(for: quantPreset)
+
         switch runtimeState {
         case .unknown:
-            return "Checking for llama.cpp and the cached Qwen GGUF."
+            return "Checking for llama.cpp and the cached \(model.suggestedFilename)."
         case .missingRuntime:
-            return "Run \(setupCommand) to install llama.cpp and cache the model."
+            return "Run \(setupCommand(for: quantPreset)) to install llama.cpp and cache the model."
         case .missingModel:
-            return "Run \(setupCommand) to download \(defaultModel.suggestedFilename)."
+            return "Run \(setupCommand(for: quantPreset)) to download \(model.suggestedFilename)."
         case .ready:
-            return "Using \(defaultModel.displayName) from the local Hugging Face cache."
+            return "Using \(model.displayName) (\(model.quantPreset.title) quant) from the local Hugging Face cache."
         case .running:
-            return "Running \(defaultModel.displayName) locally with llama.cpp."
+            return "Running \(model.displayName) locally with llama.cpp."
         case let .failed(message):
             return message
         }
@@ -102,7 +112,7 @@ final class ModelManager {
         runtimeState = .failed(message)
     }
 
-    func refreshAvailability() async {
+    func refreshAvailability(for quantPreset: QuantPreset) async {
         guard runtimeExecutableURL != nil else {
             runtimeState = .missingRuntime
             return
@@ -114,13 +124,14 @@ final class ModelManager {
         }
 
         do {
+            let model = model(for: quantPreset)
             let result = try await ProcessRunner.run(
                 executableURL: probeExecutableURL,
                 arguments: ["--cache-list"]
             )
 
-            let modelIsCached = result.stdout.contains("\(defaultModel.repository):Q5_K_M")
-                || result.stdout.contains(defaultModel.suggestedFilename)
+            let modelIsCached = result.stdout.contains("\(model.repository):\(model.quantPreset.cacheTag)")
+                || result.stdout.contains(model.suggestedFilename)
 
             runtimeState = modelIsCached ? .ready : .missingModel
         } catch {

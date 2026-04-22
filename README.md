@@ -25,7 +25,8 @@ The workspace currently has Command Line Tools selected globally, so the local r
 
 The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, executed through Homebrew's `llama.cpp` tools.
 
-- Default suggested file: `qwen2.5-0.5b-instruct-q5_k_m.gguf`
+- Default quant preset: `Balanced`
+- Default suggested file: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
 - Runtime: `llama-completion`
 - Inference mode: offline after first cache download
 
@@ -40,8 +41,14 @@ The app invokes `llama-completion` directly and uses the standard Hugging Face c
 That command:
 
 - installs `llama.cpp` with Homebrew if needed
-- caches `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
+- caches the default balanced quant for `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
 - runs a one-shot smoke test
+
+To cache a different quant explicitly:
+
+```bash
+./script/setup_model_runtime.sh --quant quality
+```
 
 After setup, the app uses `--offline` so normal inference does not depend on network access.
 
