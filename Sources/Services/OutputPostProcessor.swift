@@ -230,6 +230,8 @@ struct OutputPostProcessor {
         body = replacingLeadingPhrase(in: body, phrase: "just wanted to check whether ", with: "does ")
         body = replacingLeadingPhrase(in: body, phrase: "just checking if ", with: "does ")
         body = replacingLeadingPhrase(in: body, phrase: "checking if ", with: "does ")
+        body = replacingLeadingPhrase(in: body, phrase: "following up on whether we're ", with: "are we ")
+        body = replacingLeadingPhrase(in: body, phrase: "following up on whether we are ", with: "are we ")
         body = replacingLeadingPhrase(in: body, phrase: "wanted to follow up and see whether ", with: "following up on whether ")
         body = replacingLeadingPhrase(in: body, phrase: "wanted to follow up ", with: "following up ")
         body = body.replacingOccurrences(of: #"\bjust\b"#, with: "", options: .regularExpression)
@@ -245,11 +247,30 @@ struct OutputPostProcessor {
             body = body.replacingOccurrences(of: " needs ", with: " need ")
         }
 
+        let leadingPunctuation = leadingClausePunctuation(for: body)
+        if leadingPunctuation == "?" {
+            body = body.replacingOccurrences(
+                of: #"\.\s*if not,\s*\.?\s*"#,
+                with: "? If not, ",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        } else {
+            body = body.replacingOccurrences(
+                of: #"\.\s*if not,\s*\.?\s*"#,
+                with: ". If not, ",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        body = body.replacingOccurrences(
+            of: #"\bIf not,\.\s*"#,
+            with: "If not, ",
+            options: .regularExpression
+        )
         body = body.replacingOccurrences(of: " or if I should ", with: ", or should I ")
         body = body.replacingOccurrences(of: " and if not ", with: ". If not, ")
         body = body.replacingOccurrences(of: " shorten deck ", with: " shorten the deck ")
         body = body.replacingOccurrences(of: " send revised", with: " send a revised version")
-        body = splitBeforeICan(in: body, firstSentencePunctuation: terminalPunctuation(for: body))
+        body = splitBeforeICan(in: body, firstSentencePunctuation: leadingPunctuation)
         body = cleanupRewriteParagraph(body)
 
         if let name = greeting.name {
@@ -454,6 +475,24 @@ struct OutputPostProcessor {
         return questionStarters.contains(where: lowercased.hasPrefix) ? "?" : "."
     }
 
+    private func leadingClausePunctuation(for text: String) -> String {
+        let lowercased = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let questionStarters = [
+            "does ",
+            "do ",
+            "did ",
+            "is ",
+            "are ",
+            "can ",
+            "could ",
+            "would ",
+            "will ",
+            "should "
+        ]
+
+        return questionStarters.contains(where: lowercased.hasPrefix) ? "?" : terminalPunctuation(for: text)
+    }
+
     private func splitBeforeICan(in text: String, firstSentencePunctuation: String) -> String {
         let lowercased = text.lowercased()
         guard
@@ -466,6 +505,10 @@ struct OutputPostProcessor {
 
         let prefixLowercased = lowercased[..<range.lowerBound]
         if prefixLowercased.hasSuffix(" so") {
+            return text
+        }
+
+        if prefixLowercased.hasSuffix("if not,") {
             return text
         }
 

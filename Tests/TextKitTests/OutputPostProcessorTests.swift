@@ -120,6 +120,26 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func shortRewriteTurnsFollowUpStatusChecksIntoDirectQuestion() {
+        let request = GenerationRequest(
+            inputText: "following up on whether we're still aligned on the plan. if not, i can trim the deck and send another pass.",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteShort,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteShort)
+        )
+
+        let result = processor._finalizeForTests(
+            "Following up on whether we're still aligned on the plan. if not,. I can trim the deck and send another pass.",
+            for: request
+        )
+
+        #expect(result == "Are we still aligned on the plan? If not, I can trim the deck and send another pass.")
+    }
+
+    @Test
     func professionalRewriteAddsClearerToneWhenOutputStaysCasual() {
         let request = GenerationRequest(
             inputText: "hey john just checking if friday still works for the launch review i can move it if needed",
