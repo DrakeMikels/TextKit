@@ -68,4 +68,41 @@ struct RuntimeSettingsTests {
         #expect(store.generationSettingsRevision == initialGenerationRevision + 2)
         #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 1)
     }
+
+    @Test
+    @MainActor
+    func settingsStoreMigratesLegacyRewriteDefaults() throws {
+        let suiteName = "TextKitTests.SettingsStoreMigration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let legacyDocument = PromptProfileDocument(
+            version: 1,
+            strictModeEnabled: false,
+            modeConfigurations: Dictionary(
+                uniqueKeysWithValues: ToolMode.allCases.map { mode in
+                    (mode.id, ModePromptConfiguration.legacyDefaultV1(for: mode))
+                }
+            )
+        )
+
+        let encoded = try JSONEncoder().encode(legacyDocument)
+        defaults.set(encoded, forKey: "settings.promptProfile")
+
+        let store = SettingsStore(defaults: defaults)
+
+        #expect(
+            store.editablePromptConfiguration(for: .rewriteClean)
+                == .default(for: .rewriteClean)
+        )
+        #expect(
+            store.editablePromptConfiguration(for: .rewriteShort)
+                == .default(for: .rewriteShort)
+        )
+        #expect(
+            store.editablePromptConfiguration(for: .rewriteProfessional)
+                == .default(for: .rewriteProfessional)
+        )
+    }
 }

@@ -200,8 +200,25 @@ final class SettingsStore {
 
         return Dictionary(
             uniqueKeysWithValues: ToolMode.allCases.map { mode in
-                (mode.id, document.modeConfigurations[mode.id] ?? .default(for: mode))
+                let configuration = document.modeConfigurations[mode.id] ?? .default(for: mode)
+                return (mode.id, migratePromptConfiguration(configuration, for: mode, from: document.version))
             }
         )
+    }
+
+    private static func migratePromptConfiguration(
+        _ configuration: ModePromptConfiguration,
+        for mode: ToolMode,
+        from version: Int
+    ) -> ModePromptConfiguration {
+        guard version < PromptProfileDocument.currentVersion else {
+            return configuration
+        }
+
+        if version < 2, configuration == .legacyDefaultV1(for: mode) {
+            return .default(for: mode)
+        }
+
+        return configuration
     }
 }

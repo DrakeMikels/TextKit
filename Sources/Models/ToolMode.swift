@@ -62,15 +62,26 @@ struct ToolMode: Hashable, Codable, Identifiable {
     }
 
     var defaultSystemInstruction: String {
-        switch tool {
-        case .rewrite:
-            "Keep the rewrite faithful to the original meaning. Favor natural phrasing over flashy wording."
-        case .prompt:
-            "Produce prompts that are practical, explicit, and easy to paste into another AI system."
-        case .extract:
-            "Prefer concise, structured output and avoid inventing facts that are not present in the source text."
-        case .reply:
-            "Draft replies that feel human, brief, and appropriate to the selected tone."
+        switch id {
+        case ToolMode.rewriteClean.id:
+            "Keep the rewrite close to the source. Fix grammar, capitalization, punctuation, and awkward phrasing. Do not make it more formal unless the source already is."
+        case ToolMode.rewriteShort.id:
+            "Make the rewrite materially shorter. Remove filler, repetition, and softeners before you remove meaning."
+        case ToolMode.rewriteProfessional.id:
+            "Rewrite the text as a polished workplace message. Use complete sentences, clean punctuation, and a professional but human tone."
+        case ToolMode.rewriteBullet.id:
+            "Turn the text into concise bullet points. Keep only the important content and remove extra wording."
+        default:
+            switch tool {
+            case .rewrite:
+                "Keep the rewrite faithful to the original meaning. Favor natural phrasing over flashy wording."
+            case .prompt:
+                "Produce prompts that are practical, explicit, and easy to paste into another AI system."
+            case .extract:
+                "Prefer concise, structured output and avoid inventing facts that are not present in the source text."
+            case .reply:
+                "Draft replies that feel human, brief, and appropriate to the selected tone."
+            }
         }
     }
 
@@ -78,24 +89,27 @@ struct ToolMode: Hashable, Codable, Identifiable {
         switch id {
         case ToolMode.rewriteClean.id:
             """
-            Task: Rewrite the text for clarity.
-            Preserve the original meaning.
-            Remove awkward phrasing.
-            Return only the rewritten text.
+            Task: Clean up the text so it reads smoothly.
+            Preserve the original tone and almost all of the detail.
+            Fix grammar, capitalization, and punctuation.
+            Do not make it more formal.
+            Return only the cleaned rewrite.
             """
         case ToolMode.rewriteShort.id:
             """
-            Task: Rewrite the text in fewer words.
-            Preserve intent.
-            Remove filler.
-            Return only the shortened text.
+            Task: Rewrite the text in materially fewer words.
+            Keep the key message and request.
+            Remove filler, repetition, and softeners.
+            Prefer one compact sentence when possible.
+            Return only the shortened rewrite.
             """
         case ToolMode.rewriteProfessional.id:
             """
-            Task: Rewrite the text in a polished professional tone.
-            Preserve the meaning.
-            Avoid sounding robotic.
-            Return only the rewritten text.
+            Task: Rewrite the text so it sounds polished and professional.
+            Preserve the meaning and request.
+            Use complete sentences and clear punctuation.
+            Keep it concise and human, not stiff.
+            Return only the rewritten message.
             """
         case ToolMode.rewriteBullet.id:
             """

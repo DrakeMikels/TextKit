@@ -29,6 +29,46 @@ struct OutputPostProcessorTests {
     }
 
     @Test
+    func naturalizesShortRewriteWhenModelReturnsNotes() {
+        let request = GenerationRequest(
+            inputText: "hey john just checking if friday still works for the launch review i can move it if needed",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteShort,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteShort)
+        )
+
+        let result = processor._finalizeForTests(
+            "check friday for launch review, move if needed",
+            for: request
+        )
+
+        #expect(result == "John, does Friday still work for the launch review? I can move it if needed.")
+    }
+
+    @Test
+    func professionalRewriteAddsClearerToneWhenOutputStaysCasual() {
+        let request = GenerationRequest(
+            inputText: "hey john just checking if friday still works for the launch review i can move it if needed",
+            refineInstruction: "",
+            tool: .rewrite,
+            mode: .rewriteProfessional,
+            modelProfile: .balanced,
+            quantPreset: .balanced,
+            promptConfiguration: .default(for: .rewriteProfessional)
+        )
+
+        let result = processor._finalizeForTests(
+            "Hey John, just checking if Friday still works for the launch review. I can move it if needed.",
+            for: request
+        )
+
+        #expect(result == "Hi John, could you confirm whether Friday still works for the launch review? I can move it if needed.")
+    }
+
+    @Test
     func stripsPromptLabelsFromPromptModes() {
         let request = GenerationRequest(
             inputText: ToolMode.promptBalanced.sampleInput,

@@ -20,4 +20,13 @@ struct ModeCoverageTests {
             #expect(configuration.maxTokens >= 32)
         }
     }
+
+    @Test
+    func rewriteModesUseDistinctPromptDefaults() {
+        let modes: [ToolMode] = [.rewriteClean, .rewriteShort, .rewriteProfessional]
+        let configurations = modes.map(ModePromptConfiguration.default)
+
+        #expect(Set(configurations.map(\.systemInstruction)).count == modes.count)
+        #expect(Set(configurations.map(\.taskTemplate)).count == modes.count)
+    }
 }

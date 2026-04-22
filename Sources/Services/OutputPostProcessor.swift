@@ -7,6 +7,12 @@ struct OutputPostProcessor {
 
         let finalized: String
         switch request.mode.id {
+        case ToolMode.rewriteClean.id:
+            finalized = finalizeRewriteClean(cleaned, sourceText: request.inputText)
+        case ToolMode.rewriteShort.id:
+            finalized = finalizeRewriteShort(cleaned, sourceText: request.inputText)
+        case ToolMode.rewriteProfessional.id:
+            finalized = finalizeRewriteProfessional(cleaned, sourceText: request.inputText)
         case ToolMode.rewriteBullet.id:
             let bulletItems = normalizedBulletItems(from: cleaned.isEmpty ? request.inputText : cleaned)
             finalized = bulletItems.isEmpty ? rawTrimmed : bulletList(from: bulletItems)
@@ -42,6 +48,31 @@ struct OutputPostProcessor {
 
     private func finalizePrompt(_ cleaned: String) -> String {
         stripWrappingQuotes(from: cleaned)
+    }
+
+    private func finalizeRewriteClean(_ cleaned: String, sourceText: String) -> String {
+        let seed = cleaned.isEmpty ? sourceText : cleaned
+        return cleanupRewriteParagraph(seed)
+    }
+
+    private func finalizeRewriteShort(_ cleaned: String, sourceText: String) -> String {
+        let candidate = cleanupRewriteParagraph(cleaned.isEmpty ? sourceText : cleaned)
+
+        guard shouldFallbackToShortRewrite(candidate, sourceText: sourceText) else {
+            return candidate
+        }
+
+        return shortenedRewrite(from: sourceText)
+    }
+
+    private func finalizeRewriteProfessional(_ cleaned: String, sourceText: String) -> String {
+        let candidate = cleanupRewriteParagraph(cleaned.isEmpty ? sourceText : cleaned)
+
+        guard shouldFallbackToProfessionalRewrite(candidate, sourceText: sourceText) else {
+            return candidate
+        }
+
+        return professionalRewrite(from: candidate.isEmpty ? sourceText : candidate)
     }
 
     private func finalizeActionItems(_ cleaned: String, sourceText: String) -> String {
@@ -112,6 +143,97 @@ struct OutputPostProcessor {
         }
 
         return reply
+    }
+
+    private func cleanupRewriteParagraph(_ text: String) -> String {
+        var cleaned = normalizeParagraph(stripWrappingQuotes(from: text))
+        cleaned = cleaned.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        cleaned = normalizeStandalonePronounI(in: cleaned)
+        cleaned = capitalizeCalendarTerms(in: cleaned)
+        cleaned = capitalizeLeadingCharacter(in: cleaned)
+
+        guard let last = cleaned.last else { return cleaned }
+        if ".!?".contains(last) {
+            return cleaned
+        }
+
+        return cleaned + terminalPunctuation(for: cleaned)
+    }
+
+    private func shouldFallbackToShortRewrite(_ candidate: String, sourceText: String) -> Bool {
+        let sourceWordCount = wordCount(in: sourceText)
+        let candidateWordCount = wordCount(in: candidate)
+        let lowercased = candidate.lowercased()
+        let noteLikeStarts = ["check ", "send ", "review ", "confirm ", "finish ", "update "]
+        let lacksSubject = !lowercased.contains(" i ")
+            && !lowercased.contains(" you ")
+            && !lowercased.contains(" we ")
+            && !lowercased.hasPrefix("i ")
+            && !lowercased.hasPrefix("you ")
+            && !lowercased.hasPrefix("we ")
+        let isNoteLike = noteLikeStarts.contains(where: { lowercased.hasPrefix($0) }) && lacksSubject
+        let isNotMeaningfullyShorter = candidateWordCount >= max(4, sourceWordCount - 2)
+        return isNoteLike || isNotMeaningfullyShorter
+    }
+
+    private func shouldFallbackToProfessionalRewrite(_ candidate: String, sourceText: String) -> Bool {
+        let normalizedSource = normalizedComparableText(sourceText)
+        let normalizedCandidate = normalizedComparableText(candidate)
+        let stillSoundsCasual = candidate.lowercased().contains("hey ")
+            || candidate.lowercased().contains("just checking if")
+            || candidate.lowercased().hasPrefix("can you ")
+
+        return normalizedCandidate == normalizedSource || stillSoundsCasual
+    }
+
+    private func shortenedRewrite(from text: String) -> String {
+        let cleanedSource = cleanupRewriteParagraph(text).trimmingCharacters(in: CharacterSet(charactersIn: ".?!"))
+        let greeting = extractGreeting(from: cleanedSource)
+        var body = greeting.remainder.isEmpty ? cleanedSource : greeting.remainder
+
+        body = replacingLeadingPhrase(in: body, phrase: "just checking if ", with: "does ")
+        body = replacingLeadingPhrase(in: body, phrase: "checking if ", with: "does ")
+        body = replacingLeadingPhrase(in: body, phrase: "wanted to follow up and see whether ", with: "following up on whether ")
+        body = replacingLeadingPhrase(in: body, phrase: "wanted to follow up ", with: "following up ")
+        body = body.replacingOccurrences(of: #"\bjust\b"#, with: "", options: .regularExpression)
+        body = body.replacingOccurrences(of: #"\breally\b"#, with: "", options: .regularExpression)
+        body = body.replacingOccurrences(of: #"\bvery\b"#, with: "", options: .regularExpression)
+        body = body.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if body.lowercased().hasPrefix("does ") {
+            body = body.replacingOccurrences(of: " still works ", with: " still work ")
+            body = body.replacingOccurrences(of: " works ", with: " work ")
+        }
+
+        body = splitBeforeICan(in: body, firstSentencePunctuation: terminalPunctuation(for: body))
+        body = cleanupRewriteParagraph(body)
+
+        if let name = greeting.name {
+            return "\(name), \(lowercaseLeadingCharacter(in: body))"
+        }
+
+        return body
+    }
+
+    private func professionalRewrite(from text: String) -> String {
+        let cleanedSource = cleanupRewriteParagraph(text).trimmingCharacters(in: CharacterSet(charactersIn: ".?!"))
+        let greeting = extractGreeting(from: cleanedSource)
+        var body = greeting.remainder.isEmpty ? cleanedSource : greeting.remainder
+
+        body = replacingLeadingPhrase(in: body, phrase: "just checking if ", with: "could you confirm whether ")
+        body = replacingLeadingPhrase(in: body, phrase: "checking if ", with: "could you confirm whether ")
+        body = replacingLeadingPhrase(in: body, phrase: "can you ", with: "could you ")
+        body = body.replacingOccurrences(of: ". I can ", with: "? I can ")
+        body = splitBeforeICan(in: body, firstSentencePunctuation: terminalPunctuation(for: body))
+        body = cleanupRewriteParagraph(body)
+
+        if let name = greeting.name {
+            return "Hi \(name), \(lowercaseLeadingCharacter(in: body))"
+        }
+
+        return body
     }
 
     private func clean(_ text: String) -> String {
@@ -199,6 +321,123 @@ struct OutputPostProcessor {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+    }
+
+    private func normalizeStandalonePronounI(in text: String) -> String {
+        text.replacingOccurrences(
+            of: #"\bi\b"#,
+            with: "I",
+            options: .regularExpression
+        )
+    }
+
+    private func capitalizeCalendarTerms(in text: String) -> String {
+        let terms = [
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "january", "february", "march", "april", "may", "june", "july", "august",
+            "september", "october", "november", "december"
+        ]
+
+        return terms.reduce(text) { partialResult, term in
+            partialResult.replacingOccurrences(
+                of: "\\b\(term)\\b",
+                with: term.capitalized,
+                options: .regularExpression
+            )
+        }
+    }
+
+    private func capitalizeLeadingCharacter(in text: String) -> String {
+        guard let first = text.first else { return text }
+        return first.uppercased() + text.dropFirst()
+    }
+
+    private func lowercaseLeadingCharacter(in text: String) -> String {
+        guard let first = text.first else { return text }
+        let firstWord = text.split(separator: " ").first?.lowercased() ?? ""
+        let shouldLowercase = ["does", "do", "did", "could", "can", "would", "will", "should", "please"]
+            .contains(firstWord)
+
+        guard shouldLowercase else { return text }
+        return first.lowercased() + text.dropFirst()
+    }
+
+    private func terminalPunctuation(for text: String) -> String {
+        let lowercased = text.lowercased()
+        if lowercased.contains(". ") || lowercased.contains("? ") || lowercased.contains("! ") {
+            return "."
+        }
+
+        let questionStarters = [
+            "does ",
+            "do ",
+            "did ",
+            "is ",
+            "are ",
+            "can ",
+            "could ",
+            "would ",
+            "will ",
+            "should "
+        ]
+
+        return questionStarters.contains(where: lowercased.hasPrefix) ? "?" : "."
+    }
+
+    private func splitBeforeICan(in text: String, firstSentencePunctuation: String) -> String {
+        let lowercased = text.lowercased()
+        guard
+            !lowercased.contains(". i can "),
+            !lowercased.contains("? i can "),
+            let range = lowercased.range(of: " i can ")
+        else {
+            return text
+        }
+
+        let prefix = text[..<range.lowerBound].trimmingCharacters(in: .whitespacesAndNewlines)
+        let suffix = text[range.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prefix.isEmpty, !suffix.isEmpty else { return text }
+
+        return "\(prefix)\(firstSentencePunctuation) I can \(suffix)"
+    }
+
+    private func extractGreeting(from text: String) -> (name: String?, remainder: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = trimmed.lowercased()
+
+        for greeting in ["hey ", "hi "] where lowercased.hasPrefix(greeting) {
+            let remainder = String(trimmed.dropFirst(greeting.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            let components = remainder.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+            guard let firstComponent = components.first else {
+                return (nil, trimmed)
+            }
+
+            let name = firstComponent.trimmingCharacters(in: CharacterSet(charactersIn: ",.!?;:")).capitalized
+            let leftover = components.count > 1 ? String(components[1]) : ""
+            return (name.isEmpty ? nil : name, leftover.trimmingCharacters(in: CharacterSet(charactersIn: ", ")))
+        }
+
+        return (nil, trimmed)
+    }
+
+    private func replacingLeadingPhrase(in text: String, phrase: String, with replacement: String) -> String {
+        let lowercasedText = text.lowercased()
+        let lowercasedPhrase = phrase.lowercased()
+
+        guard lowercasedText.hasPrefix(lowercasedPhrase) else {
+            return text
+        }
+
+        return replacement + text.dropFirst(phrase.count)
+    }
+
+    private func normalizedComparableText(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: #"[^\p{L}\p{N}]+"#, with: "", options: .regularExpression)
+    }
+
+    private func wordCount(in text: String) -> Int {
+        text.split(whereSeparator: \.isWhitespace).count
     }
 
     private func normalizedBulletItems(from text: String) -> [String] {
