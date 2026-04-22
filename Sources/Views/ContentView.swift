@@ -7,6 +7,27 @@ struct ContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
+            if appModel.showsSetupFlow {
+                setupContent
+            } else {
+                mainContent
+            }
+        }
+        .padding(16)
+        .frame(width: 480)
+        .onChange(of: appModel.inputText) { _, _ in
+            appModel.scheduleRegeneration()
+        }
+        .onChange(of: appModel.settingsStore.generationSettingsRevision) { _, _ in
+            appModel.handleGenerationSettingsChange()
+        }
+        .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
+            appModel.handleRuntimeSelectionChange()
+        }
+    }
+
+    private var mainContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
             ToolTabBar(selectedTool: appModel.selectedTool, onSelect: appModel.selectTool)
 
             GroupBox("Input") {
@@ -88,16 +109,38 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(16)
-        .frame(width: 480)
-        .onChange(of: appModel.inputText) { _, _ in
-            appModel.scheduleRegeneration()
-        }
-        .onChange(of: appModel.settingsStore.generationSettingsRevision) { _, _ in
-            appModel.handleGenerationSettingsChange()
-        }
-        .onChange(of: appModel.settingsStore.runtimeSelectionRevision) { _, _ in
-            appModel.handleRuntimeSelectionChange()
+    }
+
+    private var setupContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            GroupBox {
+                SetupStatusView(
+                    setupManager: appModel.setupManager,
+                    runtimeState: appModel.modelManager.runtimeState,
+                    model: appModel.modelManager.model(for: appModel.settingsStore.quantPreset),
+                    startSetup: appModel.startSetup
+                )
+            } label: {
+                Label("Set Up TextKit", systemImage: "arrow.down.circle")
+                    .font(.headline)
+            }
+
+            if !appModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                GroupBox("Copied Text") {
+                    ScrollView {
+                        Text(appModel.inputText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                    .frame(height: TextSizing.editorHeight(
+                        for: appModel.inputText,
+                        minHeight: 110,
+                        maxHeight: 220
+                    ))
+                }
+            }
+
+            Spacer(minLength: 0)
         }
     }
 
@@ -107,7 +150,7 @@ struct ContentView: View {
                 Text("TextKit")
                     .font(.title2.weight(.semibold))
 
-                Text(appModel.statusText)
+                Text(appModel.showsSetupFlow && appModel.setupManager.isRunning ? appModel.setupManager.stepTitle : appModel.statusText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

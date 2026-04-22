@@ -33,6 +33,8 @@ struct SettingsView: View {
 
     @Bindable var settingsStore: SettingsStore
     @Bindable var modelManager: ModelManager
+    @Bindable var setupManager: SetupManager
+    let startSetup: () -> Void
 
     @State private var selectedPane: SettingsPane = .general
     @State private var selectedAdvancedModeID = ToolMode.rewriteClean.id
@@ -111,6 +113,7 @@ struct SettingsView: View {
                         }
                         .labelsHidden()
                         .frame(maxWidth: 220, alignment: .leading)
+                        .disabled(setupManager.isRunning)
 
                         Text("Fast keeps answers short. Quality allows more detail.")
                             .font(.caption)
@@ -125,6 +128,7 @@ struct SettingsView: View {
                         }
                         .labelsHidden()
                         .frame(maxWidth: 220, alignment: .leading)
+                        .disabled(setupManager.isRunning)
 
                         Text("Larger models can sound better, but use more space and may run slower.")
                             .font(.caption)
@@ -158,6 +162,7 @@ struct SettingsView: View {
                                 await modelManager.refreshAvailability(for: settingsStore.quantPreset)
                             }
                         }
+                        .disabled(setupManager.isRunning)
 
                         Text("Install command")
                             .font(.caption.weight(.semibold))
@@ -169,6 +174,21 @@ struct SettingsView: View {
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                }
+            }
+
+            if setupManager.isRunning
+                || setupManager.hasFailure
+                || modelManager.runtimeState == .missingRuntime
+                || modelManager.runtimeState == .missingModel
+            {
+                settingsCard("Set Up Local AI", systemImage: "arrow.down.circle") {
+                    SetupStatusView(
+                        setupManager: setupManager,
+                        runtimeState: modelManager.runtimeState,
+                        model: activeModel,
+                        startSetup: startSetup
+                    )
                 }
             }
 

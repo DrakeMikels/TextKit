@@ -13,7 +13,9 @@ struct TextKitApp: App {
         Settings {
             SettingsView(
                 settingsStore: appModel.settingsStore,
-                modelManager: appModel.modelManager
+                modelManager: appModel.modelManager,
+                setupManager: appModel.setupManager,
+                startSetup: appModel.startSetup
             )
         }
         .defaultSize(width: 760, height: 720)

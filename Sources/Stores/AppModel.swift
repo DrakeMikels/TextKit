@@ -7,6 +7,7 @@ import Observation
 final class AppModel {
     let settingsStore: SettingsStore
     let modelManager: ModelManager
+    let setupManager: SetupManager
 
     private let clipboardMonitor: ClipboardMonitor
     private let routeEngine: RouteEngine
@@ -30,6 +31,7 @@ final class AppModel {
     init(
         settingsStore: SettingsStore = SettingsStore(),
         modelManager: ModelManager = ModelManager(),
+        setupManager: SetupManager = SetupManager(),
         clipboardMonitor: ClipboardMonitor = ClipboardMonitor(),
         routeEngine: RouteEngine = RouteEngine(),
         promptComposer: PromptComposer = PromptComposer(),
@@ -39,6 +41,7 @@ final class AppModel {
     ) {
         self.settingsStore = settingsStore
         self.modelManager = modelManager
+        self.setupManager = setupManager
         self.clipboardMonitor = clipboardMonitor
         self.routeEngine = routeEngine
         self.promptComposer = promptComposer
@@ -68,6 +71,13 @@ final class AppModel {
     var modelSummary: String {
         let model = modelManager.model(for: settingsStore.quantPreset)
         return "\(model.displayName) · \(settingsStore.modelProfile.title) profile · \(settingsStore.quantPreset.title) quant"
+    }
+
+    var showsSetupFlow: Bool {
+        setupManager.isRunning
+            || setupManager.hasFailure
+            || modelManager.runtimeState == .missingRuntime
+            || modelManager.runtimeState == .missingModel
     }
 
     var hasPendingRefineChanges: Bool {
@@ -114,6 +124,7 @@ final class AppModel {
         Task { [weak self] in
             guard let self else { return }
             await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+            self.setupManager.resetFailure()
             await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
             self.statusText = self.modelManager.statusSummary
             self.cacheStore.invalidateAll()
@@ -138,6 +149,15 @@ final class AppModel {
 
     func regenerateNow() {
         generationTask?.cancel()
+
+        guard !showsSetupFlow else {
+            statusText = setupManager.isRunning ? setupManager.stepTitle : modelManager.statusSummary
+            outputText = setupManager.summary(
+                for: modelManager.runtimeState,
+                model: modelManager.model(for: settingsStore.quantPreset)
+            )
+            return
+        }
 
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -234,6 +254,31 @@ final class AppModel {
         pasteboard.clearContents()
         pasteboard.writeObjects([ClipboardMonitor.makeManagedPasteboardItem(text: outputText)])
         statusText = "\(modelManager.statusSummary) · copied"
+    }
+
+    func startSetup() {
+        guard !setupManager.isRunning else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+
+            let model = self.modelManager.model(for: self.settingsStore.quantPreset)
+            self.statusText = "Setting up local AI"
+            self.outputText = setupManager.summary(for: self.modelManager.runtimeState, model: model)
+
+            await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+
+            let succeeded = await self.setupManager.runSetup(for: model)
+            await self.modelManager.refreshAvailability(for: self.settingsStore.quantPreset)
+            self.statusText = self.modelManager.statusSummary
+
+            if succeeded {
+                self.cacheStore.invalidateAll()
+                self.regenerateNow()
+            } else {
+                self.outputText = self.setupManager.summary(for: self.modelManager.runtimeState, model: model)
+            }
+        }
     }
 
     private func startClipboardMonitoring() {
