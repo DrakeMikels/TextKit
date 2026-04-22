@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settingsStore: SettingsStore
-    let modelManager: ModelManager
+    @Bindable var modelManager: ModelManager
 
     var body: some View {
         Form {
@@ -25,6 +25,29 @@ struct SettingsView: View {
                     Text(modelManager.defaultModel.repository)
                         .foregroundStyle(.secondary)
                     Text("Default suggested file: \(modelManager.defaultModel.suggestedFilename)")
+                        .foregroundStyle(.secondary)
+                    Text(modelManager.runtimeDetail)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Text("Status")
+                    Spacer()
+                    Text(modelManager.statusSummary)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Button("Refresh Status") {
+                        Task {
+                            await modelManager.refreshAvailability()
+                        }
+                    }
+
+                    Spacer()
+
+                    Text(modelManager.setupCommand)
+                        .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -50,9 +73,9 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Runtime Plan") {
-                Text("This scaffold keeps generation local and uses a stub inference engine until the GGUF runtime is wired.")
-                Text("Planned backend: \(modelManager.defaultModel.runtime)")
+            Section("Runtime") {
+                Text("Local inference now runs through \(modelManager.defaultModel.runtime) in offline mode after the model is cached.")
+                Text("Use the setup command above on a fresh machine to install llama.cpp and pre-download the Qwen GGUF.")
                     .foregroundStyle(.secondary)
             }
         }

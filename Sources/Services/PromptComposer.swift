@@ -11,15 +11,17 @@ struct PromptComposer {
     If the user adds a refine instruction, apply it only within the bounds of the selected tool and mode.
     """
 
-    func compose(for request: GenerationRequest) -> String {
+    func compose(for request: GenerationRequest) -> ComposedPrompt {
         let parts = [
-            "System:\n\(systemPrompt)",
-            "Mode Prompt:\n\(modePrompt(for: request.mode))",
+            modePrompt(for: request.mode),
             request.refineInstruction.isEmpty ? nil : "Refine Instruction:\n\(request.refineInstruction)",
             "Input:\n\(request.inputText)"
         ]
 
-        return parts.compactMap { $0 }.joined(separator: "\n\n")
+        return ComposedPrompt(
+            systemPrompt: systemPrompt,
+            userPrompt: parts.compactMap { $0 }.joined(separator: "\n\n")
+        )
     }
 
     private func modePrompt(for mode: ToolMode) -> String {

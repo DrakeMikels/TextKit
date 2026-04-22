@@ -60,10 +60,10 @@ struct ContentView: View {
         .padding(16)
         .frame(width: 480)
         .onChange(of: appModel.inputText) { _, _ in
-            appModel.regenerate()
+            appModel.scheduleRegeneration()
         }
         .onChange(of: appModel.refineInstruction) { _, _ in
-            appModel.regenerate()
+            appModel.scheduleRegeneration()
         }
     }
 

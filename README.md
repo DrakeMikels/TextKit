@@ -1,6 +1,6 @@
 # TextKit
 
-TextKit is a macOS menu bar utility for clipboard-first text transformation. This repo now contains the phase-1 foundation scaffold from `textkit_prd_build_sheet.md`: menu bar shell, clipboard watcher, tool/mode switching, settings persistence, and stub local generation.
+TextKit is a macOS menu bar utility for clipboard-first text transformation. The app now runs real local inference through `llama.cpp` with the official Qwen GGUF, while keeping the original menu bar shell, clipboard watcher, tool and mode switching, and settings scaffold.
 
 ## Toolchain baseline
 
@@ -23,13 +23,27 @@ The workspace currently has Command Line Tools selected globally, so the local r
 
 ## Model plan
 
-The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`.
+The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, executed through Homebrew's `llama.cpp` tools.
 
 - Default suggested file: `qwen2.5-0.5b-instruct-q5_k_m.gguf`
-- Planned runtime: llama.cpp-compatible GGUF backend
-- Current app scaffold uses stub generation until runtime integration lands
+- Runtime: `llama-completion`
+- Inference mode: offline after first cache download
 
-This keeps the repo aligned with an upstream GGUF source instead of inventing custom quant names before benchmarking.
+The app invokes `llama-completion` directly and uses the standard Hugging Face cache populated by `llama.cpp`.
+
+## Setup the local model
+
+```bash
+./script/setup_model_runtime.sh
+```
+
+That command:
+
+- installs `llama.cpp` with Homebrew if needed
+- caches `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
+- runs a one-shot smoke test
+
+After setup, the app uses `--offline` so normal inference does not depend on network access.
 
 ## Build
 
@@ -38,6 +52,12 @@ This keeps the repo aligned with an upstream GGUF source instead of inventing cu
 ```
 
 Use `./script/build_and_run.sh --verify` for a build plus launch check.
+
+## Verify the model
+
+```bash
+./script/setup_model_runtime.sh --smoke-test
+```
 
 ## Release notes
 

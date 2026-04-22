@@ -13,6 +13,9 @@ final class AppModel {
     private let promptComposer: PromptComposer
     private let inferenceEngine: InferenceEngine
     private let cacheStore: CacheStore
+    private var generationTask: Task<Void, Never>?
+    private var debounceTask: Task<Void, Never>?
+    private var generationRevision = 0
 
     var inputText: String = ""
     var refineInstruction: String = ""
@@ -39,8 +42,15 @@ final class AppModel {
         self.cacheStore = cacheStore
         self.selectedTool = settingsStore.defaultFallbackTool
         self.selectedMode = settingsStore.defaultFallbackTool.defaultMode
+        self.statusText = "Checking local model"
 
         startClipboardMonitoring()
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.modelManager.refreshAvailability()
+            self.statusText = self.modelManager.statusSummary
+        }
     }
 
     var availableModes: [ToolMode] {
@@ -56,19 +66,38 @@ final class AppModel {
         if selectedMode.tool != tool {
             selectedMode = tool.defaultMode
         }
-        regenerate()
+        regenerateNow()
     }
 
     func selectMode(_ mode: ToolMode) {
         selectedMode = mode
-        regenerate()
+        regenerateNow()
     }
 
-    func regenerate() {
+    func scheduleRegeneration() {
+        debounceTask?.cancel()
+        debounceTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.regenerateNow()
+        }
+    }
+
+    func refreshModelAvailability() {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.modelManager.refreshAvailability()
+            self.statusText = self.modelManager.statusSummary
+        }
+    }
+
+    func regenerateNow() {
+        generationTask?.cancel()
+
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             outputText = "Copy text anywhere on macOS to precompute a result."
-            statusText = "Watching clipboard"
+            statusText = modelManager.statusSummary
             return
         }
 
@@ -96,13 +125,56 @@ final class AppModel {
             return
         }
 
-        modelManager.markWarm()
         let prompt = promptComposer.compose(for: request)
-        let output = inferenceEngine.generate(for: request, prompt: prompt)
+        generationRevision += 1
+        let revision = generationRevision
 
-        cacheStore.store(output, for: key)
-        outputText = output
-        statusText = "\(modelManager.statusSummary) · ready"
+        modelManager.markRunning()
+        outputText = "Generating locally with \(modelManager.defaultModel.displayName)…"
+        statusText = modelManager.statusSummary
+
+        generationTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                let output = try await self.inferenceEngine.generate(
+                    for: request,
+                    prompt: prompt,
+                    executableURL: self.modelManager.runtimeExecutableURL,
+                    model: self.modelManager.defaultModel,
+                    setupCommand: self.modelManager.setupCommand
+                )
+
+                guard !Task.isCancelled, revision == self.generationRevision else { return }
+
+                self.cacheStore.store(output, for: key)
+                self.modelManager.markReady()
+                self.outputText = output
+                self.statusText = "\(self.modelManager.statusSummary) · ready"
+            } catch let error as InferenceEngineError {
+                guard !Task.isCancelled, revision == self.generationRevision else { return }
+
+                switch error {
+                case .missingRuntime:
+                    self.modelManager.markMissingRuntime()
+                case .modelNotInstalled:
+                    self.modelManager.markMissingModel()
+                case let .executionFailed(message):
+                    self.modelManager.markFailure(message)
+                case .emptyOutput:
+                    self.modelManager.markFailure("The local model returned no text.")
+                }
+
+                self.outputText = error.localizedDescription
+                self.statusText = self.modelManager.statusSummary
+            } catch {
+                guard !Task.isCancelled, revision == self.generationRevision else { return }
+
+                self.modelManager.markFailure("The local model failed.")
+                self.outputText = error.localizedDescription
+                self.statusText = self.modelManager.statusSummary
+            }
+        }
     }
 
     func copyOutputToClipboard() {
@@ -127,7 +199,7 @@ final class AppModel {
 
             self.selectedTool = routedTool
             self.selectedMode = routedTool.defaultMode
-            self.regenerate()
+            self.regenerateNow()
         }
     }
 }

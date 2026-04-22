@@ -16,7 +16,8 @@ struct PromptComposerTests {
 
         let prompt = composer.compose(for: request)
 
-        #expect(prompt.contains("Refine Instruction:\nKeep it under 50 words."))
-        #expect(prompt.contains("Input:\nDraft a better reply."))
+        #expect(prompt.systemPrompt.contains("You are TextKit"))
+        #expect(prompt.userPrompt.contains("Refine Instruction:\nKeep it under 50 words."))
+        #expect(prompt.userPrompt.contains("Input:\nDraft a better reply."))
     }
 }

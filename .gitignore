@@ -2,6 +2,7 @@
 /.build
 /Packages
 /dist
+.swiftpm
 xcuserdata/
 DerivedData/
 .swiftpm/configuration/registries.json
