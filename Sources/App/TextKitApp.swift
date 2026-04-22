@@ -16,5 +16,6 @@ struct TextKitApp: App {
                 modelManager: appModel.modelManager
             )
         }
+        .defaultSize(width: 760, height: 720)
     }
 }
