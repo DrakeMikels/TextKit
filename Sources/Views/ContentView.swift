@@ -18,14 +18,14 @@ struct ContentView: View {
         .frame(width: 480)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.regularMaterial)
+                .fill(.thinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.black.opacity(0.0125))
+                        .fill(Color.black.opacity(0.006))
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.045), lineWidth: 0.7)
+                        .strokeBorder(Color.white.opacity(0.03), lineWidth: 0.65)
                 }
         }
         .onChange(of: appModel.inputText) { _, _ in
