@@ -15,7 +15,10 @@ let package = Package(
         ),
         .testTarget(
             name: "TextKitTests",
-            dependencies: ["TextKit"]
+            dependencies: ["TextKit"],
+            resources: [
+                .process("Fixtures")
+            ]
         )
     ]
 )

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "rewrite.clean.launch-review",
+    "modeID": "rewrite.clean",
+    "inputText": "hey john just checking if friday still works for the launch review i can move it if needed",
+    "referenceOutput": "Hey John, just checking if Friday still works for the launch review. I can move it if needed.",
+    "requiredPhrases": ["john", "friday", "launch review"],
+    "forbiddenPhrases": ["- "],
+    "minReferenceSimilarity": 0.65,
+    "minimumScore": 0.8
+  },
+  {
+    "id": "rewrite.clean.meeting-shift",
+    "modeID": "rewrite.clean",
+    "inputText": "hey maria i moved the draft review to thursday afternoon let me know if that breaks anything on your side",
+    "referenceOutput": "Hey Maria, I moved the draft review to Thursday afternoon. Let me know if that breaks anything on your side.",
+    "requiredPhrases": ["maria", "draft review", "thursday afternoon"],
+    "minReferenceSimilarity": 0.65,
+    "minimumScore": 0.8
+  },
+  {
+    "id": "rewrite.short.plan-alignment",
+    "modeID": "rewrite.short",
+    "inputText": "I wanted to follow up and see whether we are still aligned on the plan, and if not I can shorten the deck and send a revised version.",
+    "referenceOutput": "Are we still aligned on the plan? If not, I can shorten the deck and send a revised version.",
+    "requiredPhrases": ["aligned", "plan", "shorten the deck", "revised version"],
+    "minReferenceSimilarity": 0.45,
+    "minWordReduction": 0.18,
+    "maxWords": 18,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.short.legal-review",
+    "modeID": "rewrite.short",
+    "inputText": "just wanted to check whether the launch email still needs legal review or if i should send the final version now",
+    "referenceOutput": "Does the launch email still need legal review, or should I send the final version now?",
+    "requiredPhrases": ["launch email", "legal review", "final version"],
+    "minReferenceSimilarity": 0.45,
+    "minWordReduction": 0.15,
+    "maxWords": 16,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.professional.board-update",
+    "modeID": "rewrite.professional",
+    "inputText": "can you send me the numbers by tomorrow morning so i can get this into the board update",
+    "referenceOutput": "Hi, could you send me the numbers by tomorrow morning so I can include them in the board update?",
+    "requiredPhrases": ["tomorrow morning", "board update"],
+    "requiredAnyOfPhrases": ["could you", "please"],
+    "forbiddenPhrases": ["hey "],
+    "minReferenceSimilarity": 0.45,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.professional.invoice-confirmation",
+    "modeID": "rewrite.professional",
+    "inputText": "hey sam checking whether you can confirm the revised invoice today so we can close this out",
+    "referenceOutput": "Hi Sam, could you confirm the revised invoice today so we can close this out?",
+    "requiredPhrases": ["sam", "revised invoice", "today"],
+    "requiredAnyOfPhrases": ["could you", "please"],
+    "forbiddenPhrases": ["hey "],
+    "minReferenceSimilarity": 0.5,
+    "minimumScore": 0.75
+  },
+  {
+    "id": "rewrite.bullet.launch-tasks",
+    "modeID": "rewrite.bullet",
+    "inputText": "Need to finish the onboarding copy, update the launch checklist, and confirm who owns the release email draft.",
+    "referenceOutput": "- Finish the onboarding copy\n- Update the launch checklist\n- Confirm who owns the release email draft",
+    "requiredPhrases": ["onboarding copy", "launch checklist", "release email draft"],
+    "expectsBullets": true,
+    "minBulletCount": 3,
+    "minReferenceSimilarity": 0.55,
+    "minimumScore": 0.85
+  },
+  {
+    "id": "rewrite.bullet.beta-feedback",
+    "modeID": "rewrite.bullet",
+    "inputText": "The beta users like the speed, want keyboard shortcuts documented, and keep asking for a way to disable automatic clipboard detection.",
+    "referenceOutput": "- Users like the speed\n- Document keyboard shortcuts\n- Add a way to disable automatic clipboard detection",
+    "requiredPhrases": ["speed", "keyboard shortcuts", "automatic clipboard detection"],
+    "expectsBullets": true,
+    "minBulletCount": 3,
+    "minReferenceSimilarity": 0.45,
+    "minimumScore": 0.8
+  }
+]

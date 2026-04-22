@@ -80,6 +80,31 @@ Use `./script/build_and_run.sh --verify` for a build plus launch check.
 ./script/setup_model_runtime.sh --smoke-test
 ```
 
+## Golden eval harness
+
+The repo now includes a rewrite-focused golden eval harness so prompt changes and future model swaps can be measured against the same cases.
+
+Run the full rewrite suite:
+
+```bash
+./script/run_golden_eval.sh
+```
+
+Run one mode or a narrow case slice while tuning:
+
+```bash
+./script/run_golden_eval.sh --mode rewrite.short
+./script/run_golden_eval.sh --case board-update
+```
+
+By default the harness uses the repo prompt defaults with deterministic strict-style sampling for repeatability. To compare raw defaults instead:
+
+```bash
+./script/run_golden_eval.sh --defaults
+```
+
+The default threshold expects the selected cases to pass, so a failing run is the signal to tune prompts, post-processing, or model choice before changing the baseline.
+
 ## Release notes
 
 Git is initialized from the start so we can commit incrementally as the app evolves. Homebrew tap/cask work is intentionally deferred until there is a signed, working release artifact worth publishing.
