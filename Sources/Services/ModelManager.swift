@@ -134,14 +134,16 @@ final class ModelManager {
     }
 
     func refreshAvailability(for modelOption: LocalModelOption, quantPreset: QuantPreset) async {
+        runtimeState = await availability(for: modelOption, quantPreset: quantPreset)
+    }
+
+    func availability(for modelOption: LocalModelOption, quantPreset: QuantPreset) async -> ModelRuntimeState {
         guard runtimeExecutableURL != nil else {
-            runtimeState = .missingRuntime
-            return
+            return .missingRuntime
         }
 
         guard let probeExecutableURL = runtimeProbeExecutableURL ?? runtimeExecutableURL else {
-            runtimeState = .missingRuntime
-            return
+            return .missingRuntime
         }
 
         do {
@@ -154,9 +156,9 @@ final class ModelManager {
             let modelIsCached = result.stdout.contains("\(model.repository):\(model.quantPreset.cacheTag)")
                 || result.stdout.contains(model.suggestedFilename)
 
-            runtimeState = modelIsCached ? .ready : .missingModel
+            return modelIsCached ? .ready : .missingModel
         } catch {
-            runtimeState = .failed("Couldn't check whether the local AI is ready.")
+            return .failed("Couldn't check whether the local AI is ready.")
         }
     }
 

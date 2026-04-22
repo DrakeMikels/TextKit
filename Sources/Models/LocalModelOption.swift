@@ -50,6 +50,24 @@ enum LocalModelOption: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    var setupBadgeTitle: String {
+        switch self {
+        case .stable:
+            "Recommended"
+        case .experimental:
+            "Experimental"
+        }
+    }
+
+    var setupSummary: String {
+        switch self {
+        case .stable:
+            "Best first download for everyday rewriting, replies, and summaries."
+        case .experimental:
+            "Optional larger model for comparison testing and side-by-side evaluation."
+        }
+    }
+
     func suggestedFilename(for quantPreset: QuantPreset) -> String {
         switch self {
         case .stable:

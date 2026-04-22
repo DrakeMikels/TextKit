@@ -238,19 +238,13 @@ struct SettingsView: View {
                 }
             }
 
-            if setupManager.isRunning
-                || setupManager.hasFailure
-                || modelManager.runtimeState == .missingRuntime
-                || modelManager.runtimeState == .missingModel
-            {
-                settingsCard("Set Up Local AI", systemImage: "arrow.down.circle") {
-                    SetupStatusView(
-                        setupManager: setupManager,
-                        runtimeState: modelManager.runtimeState,
-                        model: activeModel,
-                        startSetup: startSetup
-                    )
-                }
+            settingsCard("Set Up Local AI", systemImage: "arrow.down.circle") {
+                SetupStatusView(
+                    settingsStore: settingsStore,
+                    modelManager: modelManager,
+                    setupManager: setupManager,
+                    startSetup: startSetup
+                )
             }
 
             settingsCard("How TextKit Works", systemImage: "switch.2") {

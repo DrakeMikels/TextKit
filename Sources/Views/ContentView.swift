@@ -173,12 +173,9 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             GroupBox {
                 SetupStatusView(
+                    settingsStore: appModel.settingsStore,
+                    modelManager: appModel.modelManager,
                     setupManager: appModel.setupManager,
-                    runtimeState: appModel.modelManager.runtimeState,
-                    model: appModel.modelManager.model(
-                        for: appModel.settingsStore.localModelOption,
-                        quantPreset: appModel.settingsStore.quantPreset
-                    ),
                     startSetup: appModel.startSetup
                 )
             } label: {
