@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 enum RuntimeLocator {
     private static let runtimeRootKey = "TEXTKIT_RUNTIME_ROOT"
@@ -42,12 +43,12 @@ enum RuntimeLocator {
 
         let binPath = runtimeRootURL.appendingPathComponent("bin", isDirectory: true).path
         let libPath = runtimeRootURL.appendingPathComponent("lib", isDirectory: true).path
-        let backendPath = runtimeRootURL.appendingPathComponent("backends", isDirectory: true).path
 
-        var environment: [String: String] = [
-            runtimeRootKey: runtimeRootURL.path,
-            backendPathKey: backendPath
-        ]
+        var environment: [String: String] = [runtimeRootKey: runtimeRootURL.path]
+
+        if let backendPath = preferredBackendLibraryURL(in: runtimeRootURL)?.path {
+            environment[backendPathKey] = backendPath
+        }
 
         environment["PATH"] = prepend(path: binPath, to: ProcessInfo.processInfo.environment["PATH"])
         environment["DYLD_LIBRARY_PATH"] = prepend(path: libPath, to: ProcessInfo.processInfo.environment["DYLD_LIBRARY_PATH"])
@@ -75,6 +76,61 @@ enum RuntimeLocator {
         }
 
         return nil
+    }
+
+    static func preferredBackendFilenames(cpuBrand: String?) -> [String] {
+        let normalizedBrand = (cpuBrand ?? "").lowercased()
+
+        if normalizedBrand.contains("m4") {
+            return [
+                "libggml-cpu-apple_m4.so",
+                "libggml-cpu-apple_m2_m3.so",
+                "libggml-cpu-apple_m1.so"
+            ]
+        }
+
+        if normalizedBrand.contains("m3") || normalizedBrand.contains("m2") {
+            return [
+                "libggml-cpu-apple_m2_m3.so",
+                "libggml-cpu-apple_m1.so",
+                "libggml-cpu-apple_m4.so"
+            ]
+        }
+
+        return [
+            "libggml-cpu-apple_m1.so",
+            "libggml-cpu-apple_m2_m3.so",
+            "libggml-cpu-apple_m4.so"
+        ]
+    }
+
+    private static func preferredBackendLibraryURL(in runtimeRootURL: URL) -> URL? {
+        let backendsURL = runtimeRootURL.appendingPathComponent("backends", isDirectory: true)
+        let fileManager = FileManager.default
+
+        for filename in preferredBackendFilenames(cpuBrand: currentCPUBrand()) {
+            let candidateURL = backendsURL.appendingPathComponent(filename, isDirectory: false)
+            if fileManager.isReadableFile(atPath: candidateURL.path) {
+                return candidateURL
+            }
+        }
+
+        return nil
+    }
+
+    private static func currentCPUBrand() -> String? {
+        var size: size_t = 0
+        guard sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0) == 0, size > 0 else {
+            return nil
+        }
+
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("machdep.cpu.brand_string", &buffer, &size, nil, 0) == 0 else {
+            return nil
+        }
+
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        return String(decoding: bytes, as: UTF8.self)
     }
 
     private static func prepend(path: String, to existingValue: String?) -> String {

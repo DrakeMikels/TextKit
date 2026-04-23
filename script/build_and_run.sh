@@ -45,9 +45,37 @@ write_launcher() {
     '' \
     'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"' \
     'RUNTIME_ROOT="$SCRIPT_DIR/../Resources/Runtime"' \
+    'BACKENDS_DIR="$RUNTIME_ROOT/backends"' \
+    '' \
+    'select_backend() {' \
+    '  local cpu_brand candidate' \
+    '  cpu_brand="$(/usr/sbin/sysctl -n machdep.cpu.brand_string 2>/dev/null || true)"' \
+    '' \
+    '  case "$cpu_brand" in' \
+    '    *M4*)' \
+    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m4.so" "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m1.so"; do' \
+    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
+    '      done' \
+    '      ;;' \
+    '    *M2*|*M3*)' \
+    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m1.so" "$BACKENDS_DIR/libggml-cpu-apple_m4.so"; do' \
+    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
+    '      done' \
+    '      ;;' \
+    '    *)' \
+    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m1.so" "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m4.so"; do' \
+    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
+    '      done' \
+    '      ;;' \
+    '  esac' \
+    '' \
+    '  return 1' \
+    '}' \
     '' \
     'export TEXTKIT_RUNTIME_ROOT="$RUNTIME_ROOT"' \
-    'export GGML_BACKEND_PATH="$RUNTIME_ROOT/backends"' \
+    'if BACKEND_PATH="$(select_backend)"; then' \
+    '  export GGML_BACKEND_PATH="$BACKEND_PATH"' \
+    'fi' \
     'export PATH="$RUNTIME_ROOT/bin${PATH:+:$PATH}"' \
     'export DYLD_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"' \
     'export DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"' \
