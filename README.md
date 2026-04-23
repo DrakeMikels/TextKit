@@ -1,141 +1,171 @@
 # TextKit
 
-TextKit is a macOS menu bar utility for clipboard-first text transformation. The app now runs real local inference through `llama.cpp` with the official Qwen GGUF, while keeping the original menu bar shell, clipboard watcher, tool and mode switching, and settings scaffold.
+TextKit is a native macOS menu bar utility for clipboard-first text work. Copy text anywhere on macOS, open TextKit from the menu bar, then rewrite, summarize, extract, reply, prompt, or reduce the copied text locally.
 
-## Toolchain baseline
+The app is built for a frictionless non-technical install path: packaged builds bundle the local `llama.cpp` runtime, prompt users through first-run model setup, and run inference on-device after the selected model has been downloaded.
 
-- Xcode 26.4.1
-- macOS 26.4 SDK
-- Swift 6.3
-- Package manifest pinned to macOS 26.0
+## Current Product
 
-The workspace currently has Command Line Tools selected globally, so the local run path forces `DEVELOPER_DIR=/Volumes/SSD/Applications/Xcode.app/Contents/Developer` to keep builds on the full Xcode 26 toolchain.
+- Menu bar app with an icon-only status item and SwiftUI popover.
+- Six top-level tools: Rewrite, Prompt, Extract, Reply, Summarize, and Reduce.
+- Four modes per tool, including Clean, Short, Professional, Bullet, Brief, Executive, Logs, Structured, and related task-specific modes.
+- Automatic clipboard intake with safeguards for app-authored clipboard copies.
+- Manual Reduce flow for long text, logs, traces, and structured blobs.
+- Local model setup UI with progress, model status, and retry support.
+- Advanced prompt profile editor with preview, reset, import/export, strict mode, temperature, max tokens, and seed controls.
+- Settings controls for warm runtime behavior, downloaded model cleanup, app data reset, and uninstall.
 
-## Project shape
+## Local AI
 
-- `Sources/App`: app entrypoint
-- `Sources/Views`: menu bar UI and settings surfaces
-- `Sources/Models`: tool, mode, and request models
-- `Sources/Stores`: app state, settings, and cache
-- `Sources/Services`: clipboard monitoring, routing, prompt composition, inference stub, and model metadata
-- `Tests/TextKitTests`: routing and prompt composition tests
-- `script/build_and_run.sh`: kill, build, stage, and launch entrypoint
+TextKit currently supports two local model options:
 
-## Model plan
+- Stable: `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
+- Experimental: `AaryanK/Qwen3.5-0.8B-GGUF`
 
-The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, executed through a bundled `llama.cpp` runtime in packaged builds.
+The app installs one balanced GGUF file per selected model for the user-facing setup flow. The Response Mode setting changes generation behavior, not the downloaded model file:
 
-- Packaged app runtime: bundled `llama-completion`, `llama-cli`, and `llama-server`
-- Default installed file: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
-- Inference mode: offline after first cache download
+- Fast: shorter results and lower effective token budget.
+- Balanced: default for everyday clipboard work.
+- Quality: allows more detail and a larger effective token budget.
 
-TextKit also includes an experimental larger-model option:
+When warm cache is enabled, TextKit prefers a local `llama-server` worker and shuts it down after the configured idle window. If the warm worker is unavailable or disabled, TextKit falls back to one-shot `llama-completion`.
 
-- Stable: `Qwen2.5 0.5B`
-- Experimental: `Qwen3.5 0.8B (Experimental)`
+Reduce is intentionally local-rule based and does not require the model.
 
-The app invokes `llama-completion` directly and uses the standard Hugging Face cache populated by `llama.cpp`.
+## Privacy Model
 
-## Setup the local model
+TextKit has no cloud inference path. Copied text is processed locally by the app and the bundled local runtime. Network access is only needed to download a selected model during setup.
 
-```bash
-./script/setup_model_runtime.sh
-```
+## User Install Flow
 
-That developer utility command:
+For prerelease or release builds:
 
-- uses the local `llama.cpp` install from your development machine
-- caches the default balanced quant for `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
-- runs a one-shot smoke test
+1. Open the DMG or ZIP-provided app.
+2. Move `TextKit.app` into Applications.
+3. Open TextKit from Applications.
+4. On first run, choose a model in the setup flow.
+5. Download the model once, then use TextKit offline for normal text operations.
 
-To cache a different quant explicitly:
+Packaged builds do not require Homebrew on the user's Mac.
 
-```bash
-./script/setup_model_runtime.sh --quant quality
-```
+## Development Requirements
 
-To cache the experimental model instead:
+TextKit is a Swift Package macOS app.
 
-```bash
-./script/setup_model_runtime.sh --model experimental --quant balanced
-```
+- macOS 26 target
+- Xcode 26 toolchain
+- Swift 6.3 package manifest
+- Full Xcode install expected at `/Volumes/SSD/Applications/Xcode.app/Contents/Developer` for the local scripts in this workspace
 
-After setup, the app uses `--offline` so normal inference does not depend on network access.
-
-Packaged prerelease and release builds do not require Homebrew on the end user's Mac because the app bundles its own local runtime.
-
-## Advanced prompt controls
-
-Settings now includes an advanced profile editor for every tool mode:
-
-- locked base system prompt
-- editable mode-specific system instruction
-- editable task template
-- per-mode temperature, max tokens, and seed
-- strict mode toggle for more repeatable output
-- prompt preview with sample input
-- reset, import, and export actions for prompt profiles
-
-The input and output panes in the popover also resize dynamically based on the current clipboard text and generated response.
-
-## Build
+Build and launch the local app:
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-Use `./script/build_and_run.sh --verify` for a build plus launch check.
+Run tests:
 
-## Verify the model
+```bash
+xcrun swift test
+```
+
+The local build script stages the app at:
+
+```text
+dist/TextKit.app
+```
+
+## Developer Model Setup
+
+The developer setup script uses Homebrew `llama.cpp` to populate a local model cache for development:
+
+```bash
+./script/setup_model_runtime.sh
+```
+
+Install the experimental model for local testing:
+
+```bash
+./script/setup_model_runtime.sh --model experimental --quant balanced
+```
+
+Run a model smoke test:
 
 ```bash
 ./script/setup_model_runtime.sh --smoke-test
 ```
 
-## Golden eval harness
+End-user release builds should use the bundled runtime path instead of requiring Homebrew.
 
-The repo now includes a rewrite-focused golden eval harness with separate `dev` and `holdout` suites so prompt changes and future model swaps can be measured without relying only on the cases we tuned against.
+## Golden Eval Harness
 
-Run the tuned `dev` rewrite suite:
+TextKit includes a golden eval harness for rewrite behavior with tuned development cases and separate holdout cases.
+
+Run the default dev suite:
 
 ```bash
 ./script/run_golden_eval.sh
 ```
 
-Run the unseen `holdout` suite to check generalization:
+Run the holdout suite:
 
 ```bash
 ./script/run_golden_eval.sh --suite holdout
 ```
 
-Run one mode or a narrow case slice while tuning:
+Run a single mode or case:
 
 ```bash
 ./script/run_golden_eval.sh --mode rewrite.short
 ./script/run_golden_eval.sh --case board-update
 ```
 
-By default the harness uses the repo prompt defaults with deterministic strict-style sampling for repeatability. To compare raw defaults instead:
-
-```bash
-./script/run_golden_eval.sh --defaults
-```
-
-The default threshold expects the selected cases to pass, so a failing run is the signal to tune prompts, post-processing, or model choice before changing the baseline.
-
-To measure how much the rewrite shaping layer is contributing, run the same suite with rewrite heuristics ablated:
-
-```bash
-./script/run_golden_eval.sh --suite holdout --ablation rewriteHeuristics --threshold 0.0
-```
-
-To compare the experimental model against the same rewrite suites:
+Compare the experimental model against the same suite:
 
 ```bash
 ./script/run_golden_eval.sh --model experimental
 ./script/run_golden_eval.sh --model experimental --suite holdout
 ```
 
-## Release notes
+Measure the rewrite shaping layer by ablating rewrite heuristics:
 
-Git is initialized from the start so we can commit incrementally as the app evolves. The release script now bundles the local AI runtime into `TextKit.app` and supports optional Developer ID signing plus notarization when Apple credentials are available. Homebrew tap/cask work is still deferred until the signed release path is finalized.
+```bash
+./script/run_golden_eval.sh --suite holdout --ablation rewriteHeuristics --threshold 0.0
+```
+
+## Packaging
+
+Build a local prerelease package:
+
+```bash
+./script/package_release.sh --version 0.1.0
+```
+
+The release script:
+
+- builds the release app
+- bundles the local `llama.cpp` runtime
+- packages ZIP and DMG artifacts
+- supports optional Developer ID signing and notarization when Apple credentials are provided through environment variables
+
+Generated artifacts are written under:
+
+```text
+dist/release/
+```
+
+## Repository Layout
+
+- `Sources/App`: app entrypoint and menu bar delegate
+- `Sources/Views`: popover, setup, and settings UI
+- `Sources/Models`: tools, modes, model options, and request types
+- `Sources/Stores`: app state, settings, and output cache
+- `Sources/Services`: clipboard monitor, routing, prompt composition, inference, setup, reduction, and eval support
+- `Sources/Support`: runtime lookup, cleanup, process runner, icons, and window helpers
+- `Tests/TextKitTests`: unit tests, golden eval tests, and fixtures
+- `script`: build, setup, eval, packaging, and runtime bundling scripts
+- `Resources`: app icon resources
+
+## License
+
+TextKit is distributed under the AGPL-3.0 license. See `LICENSE`.
