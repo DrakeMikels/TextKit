@@ -90,7 +90,7 @@ struct ContentView: View {
                         Spacer()
 
                         Button("Quit") {
-                            NSApplication.shared.terminate(nil)
+                            appModel.quitApplication()
                         }
                     }
                 }

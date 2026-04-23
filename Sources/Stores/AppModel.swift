@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 import Observation
 
@@ -458,6 +459,72 @@ final class AppModel {
         pasteboard.clearContents()
         pasteboard.writeObjects([ClipboardMonitor.makeManagedPasteboardItem(text: outputText)])
         statusText = selectedTool == .reduce ? "Reduced text copied" : "\(modelManager.statusSummary) · copied"
+    }
+
+    func removeDownloadedModels() async -> TextKitCleanupResult {
+        generationTask?.cancel()
+        debounceTask?.cancel()
+        cacheStore.invalidateAll()
+        await inferenceEngine.stopWarmRuntime(modelManager: modelManager)
+
+        let result = TextKitCleanupManager.removeModelData()
+        await modelManager.refreshAvailability(
+            for: settingsStore.localModelOption,
+            quantPreset: settingsStore.installedQuantPreset
+        )
+        statusText = defaultStatusText()
+
+        if modelManager.runtimeState == .missingModel {
+            outputText = setupManager.summary(
+                for: modelManager.runtimeState,
+                model: modelManager.model(
+                    for: settingsStore.localModelOption,
+                    quantPreset: settingsStore.installedQuantPreset
+                )
+            )
+        }
+
+        return result
+    }
+
+    func resetTextKitDataAndQuit() {
+        Task { [weak self] in
+            guard let self else { return }
+
+            _ = await self.removeDownloadedModels()
+            _ = TextKitCleanupManager.removeAllUserData()
+            TextKitCleanupManager.resetUserDefaults()
+            self.quitApplication()
+        }
+    }
+
+    func uninstallTextKit() {
+        Task { [weak self] in
+            guard let self else { return }
+
+            _ = await self.removeDownloadedModels()
+            _ = TextKitCleanupManager.removeAllUserData()
+            TextKitCleanupManager.resetUserDefaults()
+            try? TextKitCleanupManager.trashCurrentAppBundle()
+            self.quitApplication()
+        }
+    }
+
+    func quitApplication() {
+        generationTask?.cancel()
+        debounceTask?.cancel()
+        clipboardMonitor.stop()
+
+        Task { [weak self] in
+            if let self {
+                await self.inferenceEngine.stopWarmRuntime(modelManager: self.modelManager)
+            }
+
+            NSApplication.shared.terminate(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                exit(0)
+            }
+        }
     }
 
     func startSetup() {

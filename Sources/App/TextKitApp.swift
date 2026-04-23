@@ -34,7 +34,10 @@ struct TextKitApp: App {
                         refineInstruction: refineInstruction,
                         mode: mode
                     )
-                }
+                },
+                removeDownloadedModels: appModel.removeDownloadedModels,
+                resetTextKitDataAndQuit: appModel.resetTextKitDataAndQuit,
+                uninstallTextKit: appModel.uninstallTextKit
             )
         }
         .defaultSize(width: 760, height: 720)

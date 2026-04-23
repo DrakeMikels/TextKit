@@ -142,6 +142,8 @@ write_launcher() {
       'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"' \
       'RUNTIME_ROOT="$SCRIPT_DIR/../Resources/Runtime"' \
       'BACKENDS_DIR="$RUNTIME_ROOT/backends"' \
+      'APP_SUPPORT="$HOME/Library/Application Support/TextKit"' \
+      'mkdir -p "$APP_SUPPORT/xdg-cache"' \
       '' \
       'select_backend() {' \
       '  local cpu_brand candidate' \
@@ -172,6 +174,7 @@ write_launcher() {
       'if BACKEND_PATH="$(select_backend)"; then' \
       '  export GGML_BACKEND_PATH="$BACKEND_PATH"' \
       'fi' \
+      'export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$APP_SUPPORT/xdg-cache}"' \
       'export PATH="$RUNTIME_ROOT/bin${PATH:+:$PATH}"' \
       'export DYLD_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"' \
       'export DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"' \

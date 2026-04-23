@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     typealias DebugEvaluationAction = (String, String, ToolMode) async throws -> DebugEvaluationResult
+    typealias RemoveModelsAction = () async -> TextKitCleanupResult
 
     private enum SettingsPane: String, CaseIterable, Identifiable {
         case general
@@ -38,6 +39,9 @@ struct SettingsView: View {
     @Bindable var setupManager: SetupManager
     let startSetup: () -> Void
     let runDebugEvaluation: DebugEvaluationAction
+    let removeDownloadedModels: RemoveModelsAction
+    let resetTextKitDataAndQuit: () -> Void
+    let uninstallTextKit: () -> Void
 
     @State private var selectedPane: SettingsPane = .general
     @State private var selectedAdvancedModeID = ToolMode.rewriteClean.id
@@ -48,8 +52,28 @@ struct SettingsView: View {
     @State private var debugFinalOutput = ""
     @State private var debugStatus = "Run a live check with the current model and style."
     @State private var debugIsRunning = false
+    @State private var cleanupStatus = ""
+    @State private var cleanupIsRunning = false
+    @State private var cleanupConfirmation: CleanupConfirmation?
 
     private let promptComposer = PromptComposer()
+
+    private enum CleanupConfirmation: Identifiable {
+        case removeModels
+        case resetAndQuit
+        case uninstall
+
+        var id: String {
+            switch self {
+            case .removeModels:
+                "removeModels"
+            case .resetAndQuit:
+                "resetAndQuit"
+            case .uninstall:
+                "uninstall"
+            }
+        }
+    }
 
     private var selectedMode: ToolMode {
         ToolMode.mode(for: selectedAdvancedModeID) ?? .rewriteClean
@@ -127,6 +151,15 @@ struct SettingsView: View {
                     quantPreset: settingsStore.installedQuantPreset
                 )
             }
+        }
+        .confirmationDialog(
+            "Manage TextKit Data",
+            isPresented: cleanupConfirmationBinding,
+            titleVisibility: .visible
+        ) {
+            cleanupConfirmationButtons
+        } message: {
+            cleanupConfirmationMessage
         }
     }
 
@@ -209,6 +242,59 @@ struct SettingsView: View {
                     setupManager: setupManager,
                     startSetup: startSetup
                 )
+            }
+
+            settingsCard("Storage & Uninstall", systemImage: "externaldrive.badge.xmark") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Remove the downloaded local models and TextKit data from this Mac.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            Button("Remove Downloaded Models") {
+                                cleanupConfirmation = .removeModels
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+
+                            Button("Reset Data & Quit") {
+                                cleanupConfirmation = .resetAndQuit
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+
+                            Button("Uninstall TextKit", role: .destructive) {
+                                cleanupConfirmation = .uninstall
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+
+                            Spacer(minLength: 0)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Button("Remove Downloaded Models") {
+                                cleanupConfirmation = .removeModels
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+
+                            Button("Reset Data & Quit") {
+                                cleanupConfirmation = .resetAndQuit
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+
+                            Button("Uninstall TextKit", role: .destructive) {
+                                cleanupConfirmation = .uninstall
+                            }
+                            .disabled(cleanupIsRunning || setupManager.isRunning)
+                        }
+                    }
+
+                    if !cleanupStatus.isEmpty {
+                        Text(cleanupStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
 
             settingsCard("How TextKit Works", systemImage: "switch.2") {
@@ -727,5 +813,63 @@ struct SettingsView: View {
         } catch {
             importExportStatus = error.localizedDescription
         }
+    }
+
+    private var cleanupConfirmationBinding: Binding<Bool> {
+        Binding(
+            get: { cleanupConfirmation != nil },
+            set: { isPresented in
+                if !isPresented {
+                    cleanupConfirmation = nil
+                }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var cleanupConfirmationButtons: some View {
+        switch cleanupConfirmation {
+        case .removeModels:
+            Button("Remove Downloaded Models", role: .destructive) {
+                Task {
+                    await removeDownloadedModelsNow()
+                }
+            }
+        case .resetAndQuit:
+            Button("Reset Data & Quit", role: .destructive) {
+                resetTextKitDataAndQuit()
+            }
+        case .uninstall:
+            Button("Uninstall TextKit", role: .destructive) {
+                uninstallTextKit()
+            }
+        case nil:
+            EmptyView()
+        }
+
+        Button("Cancel", role: .cancel) {}
+    }
+
+    @ViewBuilder
+    private var cleanupConfirmationMessage: some View {
+        switch cleanupConfirmation {
+        case .removeModels:
+            Text("This removes TextKit's downloaded local model files. TextKit will ask to download a model again before using AI tools.")
+        case .resetAndQuit:
+            Text("This removes TextKit model files and app data, then quits. The app itself stays in Applications.")
+        case .uninstall:
+            Text("This removes TextKit data, tries to move the app to Trash, then quits.")
+        case nil:
+            EmptyView()
+        }
+    }
+
+    @MainActor
+    private func removeDownloadedModelsNow() async {
+        cleanupIsRunning = true
+        cleanupStatus = "Removing downloaded models..."
+        let result = await removeDownloadedModels()
+        cleanupStatus = result.summary
+        cleanupIsRunning = false
     }
 }

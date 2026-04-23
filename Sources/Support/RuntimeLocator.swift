@@ -50,6 +50,10 @@ enum RuntimeLocator {
             environment[backendPathKey] = backendPath
         }
 
+        if ProcessInfo.processInfo.environment["XDG_CACHE_HOME"]?.isEmpty ?? true {
+            environment["XDG_CACHE_HOME"] = TextKitCleanupManager.defaultXDGCacheURL().path
+        }
+
         environment["PATH"] = prepend(path: binPath, to: ProcessInfo.processInfo.environment["PATH"])
         environment["DYLD_LIBRARY_PATH"] = prepend(path: libPath, to: ProcessInfo.processInfo.environment["DYLD_LIBRARY_PATH"])
         environment["DYLD_FALLBACK_LIBRARY_PATH"] = prepend(path: libPath, to: ProcessInfo.processInfo.environment["DYLD_FALLBACK_LIBRARY_PATH"])
