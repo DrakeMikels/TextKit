@@ -45,13 +45,14 @@ final class TextKitAppDelegate: NSObject, NSApplicationDelegate {
     private func configureStatusItem() {
         guard statusItem == nil else { return }
 
-        let statusItem = NSStatusBar.system.statusItem(withLength: 54)
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = AppIconProvider.menuBarImage()
             button.image?.isTemplate = true
-            button.imagePosition = .imageLeading
-            button.title = "TK"
+            button.imagePosition = .imageOnly
+            button.title = ""
             button.toolTip = "TextKit"
+            button.setAccessibilityLabel("TextKit")
             button.target = self
             button.action = #selector(togglePopover(_:))
         }
