@@ -148,6 +148,7 @@ chmod +x "$APP_BINARY"
 write_launcher
 write_info_plist
 "$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
+codesign --force --sign - "$APP_BINARY"
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 case "$MODE" in

@@ -28,6 +28,12 @@ ZIP_PATH="$DIST_DIR/$ZIP_NAME.zip"
 DMG_PATH="$DIST_DIR/$DMG_NAME.dmg"
 API_KEY_PATH="$DIST_DIR/AuthKey.p8"
 
+cleanup_release_artifacts() {
+  rm -f "$API_KEY_PATH"
+}
+
+trap cleanup_release_artifacts EXIT
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --fresh-first-run)
@@ -287,6 +293,7 @@ chmod +x "$APP_BINARY"
 write_launcher
 write_info_plist
 "$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
+codesign_artifact "$APP_BINARY"
 sign_runtime_artifacts
 codesign_artifact "$APP_BUNDLE"
 
@@ -302,8 +309,6 @@ if [[ -n "${CODESIGN_IDENTITY:-}" ]] && { [[ -n "${APPLE_API_KEY_P8:-}" && -n "$
 else
   package_dmg
 fi
-
-rm -f "$API_KEY_PATH"
 
 echo "Built app: $APP_BUNDLE"
 echo "Built ZIP: $ZIP_PATH"
