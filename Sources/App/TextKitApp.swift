@@ -14,7 +14,7 @@ struct TextKitApp: App {
             initialSetupWindowController?.present()
         }
 
-        NSApp.applicationIconImage = AppIconProvider.applicationIconImage()
+        NSApplication.shared.applicationIconImage = AppIconProvider.applicationIconImage()
 
         self._appModel = State(initialValue: appModel)
         self.initialSetupWindowController = initialSetupWindowController
