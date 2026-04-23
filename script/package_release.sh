@@ -139,6 +139,8 @@ write_info_plist() {
     '  <string>TextKit</string>' \
     '  <key>CFBundleIdentifier</key>' \
     "  <string>$BUNDLE_ID</string>" \
+    '  <key>CFBundleIconFile</key>' \
+    '  <string>AppIcon</string>' \
     '  <key>CFBundleName</key>' \
     "  <string>$APP_DISPLAY_NAME</string>" \
     '  <key>CFBundlePackageType</key>' \
@@ -274,6 +276,7 @@ CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-${APPLE_DEVELOPER_ID_IDENTITY:-}}"
 export CODESIGN_IDENTITY
 
 SWIFT_BIN="swift"
+SWIFT_MODULE_CACHE_DIR="$ROOT_DIR/.tmp/module-cache"
 if [[ -n "${DEVELOPER_DIR:-}" ]]; then
   TOOLCHAIN_SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
   if [[ -x "$TOOLCHAIN_SWIFT" ]]; then
@@ -282,6 +285,8 @@ if [[ -n "${DEVELOPER_DIR:-}" ]]; then
 fi
 
 echo "Building $APP_DISPLAY_NAME ($BUILD_CONFIGURATION)..."
+mkdir -p "$SWIFT_MODULE_CACHE_DIR"
+"$SWIFT_BIN" -module-cache-path "$SWIFT_MODULE_CACHE_DIR" "$ROOT_DIR/script/render_app_icon.swift"
 "$SWIFT_BIN" build -c "$BUILD_CONFIGURATION"
 BUILD_BINARY="$("$SWIFT_BIN" build -c "$BUILD_CONFIGURATION" --show-bin-path)/TextKit"
 
@@ -289,6 +294,10 @@ rm -rf "$APP_BUNDLE" "$STAGING_DIR" "$ZIP_PATH" "$DMG_PATH"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+
+if [[ -d "$ROOT_DIR/Resources" ]]; then
+  cp -R "$ROOT_DIR/Resources/." "$APP_RESOURCES/"
+fi
 
 write_launcher
 write_info_plist
