@@ -29,6 +29,7 @@ struct TextKitCleanupResult: Equatable {
 enum TextKitCleanupManager {
     static let appSupportFolderName = "TextKit"
     static let xdgCacheFolderName = "xdg-cache"
+    private static let xdgCacheEnvironmentKey = "XDG_CACHE_HOME"
 
     private static let modelRepositoryCacheNames = [
         "models--Qwen--Qwen2.5-0.5B-Instruct-GGUF",
@@ -78,12 +79,19 @@ enum TextKitCleanupManager {
 
     static func appOwnedModelDataURLs(
         appSupportURL: URL = Self.appSupportURL(),
-        xdgCacheURL: URL = Self.defaultXDGCacheURL()
+        xdgCacheURL: URL = Self.defaultXDGCacheURL(),
+        activeXDGCacheURL: URL? = Self.activeXDGCacheURL()
     ) -> [URL] {
-        [
+        var urls = [
             xdgCacheURL,
             appSupportURL.appendingPathComponent(xdgCacheFolderName, isDirectory: true)
         ]
+
+        if let activeXDGCacheURL, isTextKitOwnedXDGCacheURL(activeXDGCacheURL) {
+            urls.append(activeXDGCacheURL)
+        }
+
+        return urls
     }
 
     static func legacyModelDataURLs(
@@ -115,6 +123,27 @@ enum TextKitCleanupManager {
             .appendingPathComponent("Application Support", isDirectory: true)
 
         return baseURL.appendingPathComponent(appSupportFolderName, isDirectory: true)
+    }
+
+    private static func activeXDGCacheURL(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL? {
+        guard
+            let path = environment[xdgCacheEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !path.isEmpty
+        else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    private static func isTextKitOwnedXDGCacheURL(_ url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        let pathComponents = standardizedURL.pathComponents
+
+        return standardizedURL.lastPathComponent == xdgCacheFolderName
+            && pathComponents.contains(appSupportFolderName)
     }
 
     private static func remove(urls: [URL]) -> TextKitCleanupResult {

@@ -7,13 +7,31 @@ struct TextKitCleanupManagerTests {
     func appOwnedModelDataUsesApplicationSupportCache() {
         let appSupportURL = URL(fileURLWithPath: "/tmp/TextKit", isDirectory: true)
         let xdgCacheURL = appSupportURL.appendingPathComponent("xdg-cache", isDirectory: true)
+        let activeXDGCacheURL = URL(fileURLWithPath: "/Volumes/SSD/Dev Projects/TextKit/.tmp/xdg-cache", isDirectory: true)
 
         let urls = TextKitCleanupManager.appOwnedModelDataURLs(
             appSupportURL: appSupportURL,
-            xdgCacheURL: xdgCacheURL
+            xdgCacheURL: xdgCacheURL,
+            activeXDGCacheURL: activeXDGCacheURL
         )
 
         #expect(urls.contains(xdgCacheURL))
+        #expect(urls.contains(activeXDGCacheURL))
+    }
+
+    @Test
+    func appOwnedModelDataDoesNotTargetArbitraryXDGCache() {
+        let appSupportURL = URL(fileURLWithPath: "/tmp/TextKit", isDirectory: true)
+        let xdgCacheURL = appSupportURL.appendingPathComponent("xdg-cache", isDirectory: true)
+        let arbitraryXDGCacheURL = URL(fileURLWithPath: "/Users/example/.cache", isDirectory: true)
+
+        let urls = TextKitCleanupManager.appOwnedModelDataURLs(
+            appSupportURL: appSupportURL,
+            xdgCacheURL: xdgCacheURL,
+            activeXDGCacheURL: arbitraryXDGCacheURL
+        )
+
+        #expect(!urls.contains(arbitraryXDGCacheURL))
     }
 
     @Test

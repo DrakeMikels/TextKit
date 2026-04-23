@@ -33,6 +33,7 @@ struct SetupStatusView: View {
     private var refreshKey: String {
         [
             settingsStore.localModelOption.rawValue,
+            String(modelManager.availabilityRevision),
             setupManager.isRunning ? "running" : "idle",
             setupManager.hasFailure ? "failed" : "ok"
         ].joined(separator: "|")

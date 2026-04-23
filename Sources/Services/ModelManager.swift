@@ -43,6 +43,7 @@ enum ModelRuntimeState: Equatable {
 final class ModelManager {
     private(set) var isWarm = false
     private(set) var runtimeState: ModelRuntimeState = .unknown
+    private(set) var availabilityRevision = 0
 
     var runtimeExecutableURL: URL? {
         RuntimeLocator.executableURL(named: "llama-completion")
@@ -139,6 +140,7 @@ final class ModelManager {
 
     func refreshAvailability(for modelOption: LocalModelOption, quantPreset: QuantPreset) async {
         runtimeState = await availability(for: modelOption, quantPreset: quantPreset)
+        availabilityRevision += 1
     }
 
     func availability(for modelOption: LocalModelOption, quantPreset: QuantPreset) async -> ModelRuntimeState {
