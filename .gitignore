@@ -1,6 +1,7 @@
 .DS_Store
 /.build
 /.tmp
+/.tmp-cache-probe
 /Packages
 /dist
 .swiftpm
@@ -9,3 +10,36 @@ DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
+
+# Local planning / working docs
+/textkit_prd_build_sheet.md
+/*_prd_build_sheet.md
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.secrets
+
+# Apple signing and notarization secrets
+*.p8
+AuthKey_*.p8
+AuthKey.p8
+*.cer
+*.certSigningRequest
+*.developerprofile
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+ExportOptions.plist
+notarytool-profile*
+altool-password*
+
+# Generated release artifacts
+*.dmg
+*.zip
+*.pkg
+*.xcarchive
