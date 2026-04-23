@@ -14,11 +14,7 @@ RUNTIME_LIB="$RUNTIME_ROOT/lib"
 RUNTIME_BACKENDS="$RUNTIME_ROOT/backends"
 
 realpath_py() {
-  /usr/bin/python3 - "$1" <<'PY'
-import os
-import sys
-print(os.path.realpath(sys.argv[1]))
-PY
+  /usr/bin/python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
 }
 
 require_file() {

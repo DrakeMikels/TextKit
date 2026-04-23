@@ -9,33 +9,48 @@ private enum PopoverActivation {
 @MainActor
 final class TextKitAppDelegate: NSObject, NSApplicationDelegate {
     private static var configuredAppModel: AppModel?
+    private static weak var sharedInstance: TextKitAppDelegate?
 
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var hostingController: NSHostingController<ContentView>?
     private var pendingPopoverShowWorkItem: DispatchWorkItem?
+    private var didFinishLaunching = false
+
+    override init() {
+        super.init()
+        Self.sharedInstance = self
+    }
 
     static func configure(appModel: AppModel) {
         configuredAppModel = appModel
+        sharedInstance?.configureIfPossible()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard let appModel = Self.configuredAppModel else {
-            assertionFailure("AppModel must be configured before launch")
-            return
-        }
+        didFinishLaunching = true
+        configureIfPossible()
+    }
 
-        NSApplication.shared.applicationIconImage = AppIconProvider.applicationIconImage()
-        configureStatusItem()
-        configurePopover(appModel: appModel)
+    func applicationWillTerminate(_ notification: Notification) {
+        pendingPopoverShowWorkItem?.cancel()
+        popover.performClose(nil)
+        if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
+        }
+        statusItem = nil
+        hostingController = nil
     }
 
     private func configureStatusItem() {
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        guard statusItem == nil else { return }
+
+        let statusItem = NSStatusBar.system.statusItem(withLength: 54)
         if let button = statusItem.button {
             button.image = AppIconProvider.menuBarImage()
-            button.imagePosition = .imageOnly
-            button.title = ""
+            button.image?.isTemplate = true
+            button.imagePosition = .imageLeading
+            button.title = "TK"
             button.toolTip = "TextKit"
             button.target = self
             button.action = #selector(togglePopover(_:))
@@ -44,6 +59,8 @@ final class TextKitAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configurePopover(appModel: AppModel) {
+        guard hostingController == nil else { return }
+
         let hostingController = NSHostingController(rootView: ContentView(appModel: appModel))
         self.hostingController = hostingController
 
@@ -52,6 +69,14 @@ final class TextKitAppDelegate: NSObject, NSApplicationDelegate {
         popover.delegate = self
         popover.contentViewController = hostingController
         popover.contentSize = NSSize(width: 512, height: 720)
+    }
+
+    private func configureIfPossible() {
+        guard didFinishLaunching, let appModel = Self.configuredAppModel else { return }
+
+        NSApplication.shared.applicationIconImage = AppIconProvider.applicationIconImage()
+        configureStatusItem()
+        configurePopover(appModel: appModel)
     }
 
     @objc

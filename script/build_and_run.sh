@@ -12,7 +12,7 @@ DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
-APP_BINARY="$APP_MACOS/$APP_NAME-bin"
+APP_BINARY="$APP_MACOS/$APP_NAME"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
@@ -36,56 +36,6 @@ resolve_developer_dir() {
   done
 
   xcode-select -p 2>/dev/null || true
-}
-
-write_launcher() {
-  printf '%s\n' \
-    '#!/bin/zsh' \
-    'set -euo pipefail' \
-    '' \
-    'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"' \
-    'RUNTIME_ROOT="$SCRIPT_DIR/../Resources/Runtime"' \
-    'BACKENDS_DIR="$RUNTIME_ROOT/backends"' \
-    'APP_SUPPORT="$HOME/Library/Application Support/TextKit"' \
-    'mkdir -p "$APP_SUPPORT/xdg-cache"' \
-    '' \
-    'select_backend() {' \
-    '  local cpu_brand candidate' \
-    '  cpu_brand="$(/usr/sbin/sysctl -n machdep.cpu.brand_string 2>/dev/null || true)"' \
-    '' \
-    '  case "$cpu_brand" in' \
-    '    *M4*)' \
-    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m4.so" "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m1.so"; do' \
-    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
-    '      done' \
-    '      ;;' \
-    '    *M2*|*M3*)' \
-    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m1.so" "$BACKENDS_DIR/libggml-cpu-apple_m4.so"; do' \
-    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
-    '      done' \
-    '      ;;' \
-    '    *)' \
-    '      for candidate in "$BACKENDS_DIR/libggml-cpu-apple_m1.so" "$BACKENDS_DIR/libggml-cpu-apple_m2_m3.so" "$BACKENDS_DIR/libggml-cpu-apple_m4.so"; do' \
-    '        [[ -f "$candidate" ]] && { printf "%s\n" "$candidate"; return 0; }' \
-    '      done' \
-    '      ;;' \
-    '  esac' \
-    '' \
-    '  return 1' \
-    '}' \
-    '' \
-    'export TEXTKIT_RUNTIME_ROOT="$RUNTIME_ROOT"' \
-    'if BACKEND_PATH="$(select_backend)"; then' \
-    '  export GGML_BACKEND_PATH="$BACKEND_PATH"' \
-    'fi' \
-    'export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$APP_SUPPORT/xdg-cache}"' \
-    'export PATH="$RUNTIME_ROOT/bin${PATH:+:$PATH}"' \
-    'export DYLD_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"' \
-    'export DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"' \
-    '' \
-    'exec -a "TextKit" "$SCRIPT_DIR/TextKit-bin"' \
-    >"$APP_MACOS/$APP_NAME"
-  chmod +x "$APP_MACOS/$APP_NAME"
 }
 
 write_info_plist() {
@@ -185,7 +135,6 @@ if [[ -d "$ROOT_DIR/Resources" ]]; then
   cp -R "$ROOT_DIR/Resources/." "$APP_RESOURCES/"
 fi
 
-write_launcher
 write_info_plist
 "$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
 codesign --force --sign - "$APP_BINARY"
