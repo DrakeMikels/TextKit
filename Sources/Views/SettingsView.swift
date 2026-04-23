@@ -66,7 +66,7 @@ struct SettingsView: View {
     private var activeModel: LocalModelDescriptor {
         modelManager.model(
             for: settingsStore.localModelOption,
-            quantPreset: settingsStore.quantPreset
+            quantPreset: settingsStore.installedQuantPreset
         )
     }
 
@@ -120,19 +120,11 @@ struct SettingsView: View {
         .onChange(of: previewRefineInstruction) { _, _ in invalidateDebugResult() }
         .onChange(of: settingsStore.generationSettingsRevision) { _, _ in invalidateDebugResult() }
         .onChange(of: settingsStore.runtimeSelectionRevision) { _, _ in invalidateDebugResult() }
-        .onChange(of: settingsStore.quantPreset) { _, quantPreset in
-            Task {
-                await modelManager.refreshAvailability(
-                    for: settingsStore.localModelOption,
-                    quantPreset: quantPreset
-                )
-            }
-        }
         .onChange(of: settingsStore.localModelOption) { _, modelOption in
             Task {
                 await modelManager.refreshAvailability(
                     for: modelOption,
-                    quantPreset: settingsStore.quantPreset
+                    quantPreset: settingsStore.installedQuantPreset
                 )
             }
         }
@@ -155,10 +147,14 @@ struct SettingsView: View {
                         Text(settingsStore.localModelOption.helperDetail)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        Text("TextKit installs one balanced local file per model to keep setup simple.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
 
-                    controlBlock(title: "Detail Level") {
-                        Picker("Detail Level", selection: $settingsStore.modelProfile) {
+                    controlBlock(title: "Response Mode") {
+                        Picker("Response Mode", selection: $settingsStore.modelProfile) {
                             ForEach(ModelProfile.allCases) { profile in
                                 Text(profile.title).tag(profile)
                             }
@@ -167,22 +163,7 @@ struct SettingsView: View {
                         .frame(maxWidth: 220, alignment: .leading)
                         .disabled(setupManager.isRunning)
 
-                        Text("Fast keeps answers short. Quality allows more detail.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    controlBlock(title: "Model Size") {
-                        Picker("Model Size", selection: $settingsStore.quantPreset) {
-                            ForEach(QuantPreset.allCases) { preset in
-                                Text(preset.title).tag(preset)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: 220, alignment: .leading)
-                        .disabled(setupManager.isRunning)
-
-                        Text("This changes the download size and speed for the selected AI model.")
+                        Text(settingsStore.modelProfile.helperDetail)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -190,13 +171,9 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(activeModel.displayName)
                             .font(.subheadline.weight(.semibold))
-                        Text("Model source: \(activeModel.repository)")
-                            .foregroundStyle(.secondary)
-                        Text("Installed file: \(activeModel.suggestedFilename)")
-                            .foregroundStyle(.secondary)
                         Text(modelManager.runtimeDetail(
                             for: settingsStore.localModelOption,
-                            quantPreset: settingsStore.quantPreset
+                            quantPreset: settingsStore.installedQuantPreset
                         ))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -216,24 +193,11 @@ struct SettingsView: View {
                             Task {
                                 await modelManager.refreshAvailability(
                                     for: settingsStore.localModelOption,
-                                    quantPreset: settingsStore.quantPreset
+                                    quantPreset: settingsStore.installedQuantPreset
                                 )
                             }
                         }
                         .disabled(setupManager.isRunning)
-
-                        Text("Install command")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        Text(modelManager.setupCommand(
-                            for: settingsStore.localModelOption,
-                            quantPreset: settingsStore.quantPreset
-                        ))
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -289,7 +253,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("TextKit runs the selected AI model locally on your Mac after it has been downloaded.")
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("The model is downloaded once. After that, your copied text stays on-device while TextKit works.")
+                    Text("Each model downloads once using a balanced local file. Response Mode changes how TextKit answers, not which file it installs.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

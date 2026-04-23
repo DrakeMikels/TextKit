@@ -68,7 +68,7 @@ final class AppModel {
             guard let self else { return }
             await self.modelManager.refreshAvailability(
                 for: self.settingsStore.localModelOption,
-                quantPreset: self.settingsStore.quantPreset
+                quantPreset: self.settingsStore.installedQuantPreset
             )
             self.armInitialSetupPromptIfNeeded()
             self.statusText = self.defaultStatusText()
@@ -86,9 +86,9 @@ final class AppModel {
 
         let model = modelManager.model(
             for: settingsStore.localModelOption,
-            quantPreset: settingsStore.quantPreset
+            quantPreset: settingsStore.installedQuantPreset
         )
-        return "\(model.displayName) · \(settingsStore.modelProfile.title) profile · \(settingsStore.quantPreset.title) quant"
+        return "\(model.displayName) · \(settingsStore.modelProfile.title) mode"
     }
 
     var showsSetupFlow: Bool {
@@ -180,7 +180,7 @@ final class AppModel {
             guard let self else { return }
             await self.modelManager.refreshAvailability(
                 for: self.settingsStore.localModelOption,
-                quantPreset: self.settingsStore.quantPreset
+                quantPreset: self.settingsStore.installedQuantPreset
             )
             self.statusText = self.defaultStatusText()
         }
@@ -193,7 +193,7 @@ final class AppModel {
             self.setupManager.resetFailure()
             await self.modelManager.refreshAvailability(
                 for: self.settingsStore.localModelOption,
-                quantPreset: self.settingsStore.quantPreset
+                quantPreset: self.settingsStore.installedQuantPreset
             )
             self.statusText = self.defaultStatusText()
             self.cacheStore.invalidateAll()
@@ -273,7 +273,7 @@ final class AppModel {
             tool: mode.tool,
             mode: mode,
             modelProfile: settingsStore.modelProfile,
-            quantPreset: settingsStore.quantPreset,
+            quantPreset: settingsStore.installedQuantPreset,
             promptConfiguration: settingsStore.promptConfiguration(for: mode)
         )
 
@@ -337,7 +337,7 @@ final class AppModel {
                 for: modelManager.runtimeState,
                 model: modelManager.model(
                     for: settingsStore.localModelOption,
-                    quantPreset: settingsStore.quantPreset
+                    quantPreset: settingsStore.installedQuantPreset
                 )
             )
             return
@@ -366,7 +366,7 @@ final class AppModel {
             tool: selectedTool,
             mode: selectedMode,
             modelProfile: settingsStore.modelProfile,
-            quantPreset: settingsStore.quantPreset,
+            quantPreset: settingsStore.installedQuantPreset,
             promptConfiguration: settingsStore.promptConfiguration(for: selectedMode)
         )
 
@@ -468,7 +468,7 @@ final class AppModel {
 
             let model = self.modelManager.model(
                 for: self.settingsStore.localModelOption,
-                quantPreset: self.settingsStore.quantPreset
+                quantPreset: self.settingsStore.installedQuantPreset
             )
             self.statusText = "Setting up local AI"
             self.outputText = setupManager.summary(for: self.modelManager.runtimeState, model: model)
@@ -478,7 +478,7 @@ final class AppModel {
             let succeeded = await self.setupManager.runSetup(for: model)
             await self.modelManager.refreshAvailability(
                 for: self.settingsStore.localModelOption,
-                quantPreset: self.settingsStore.quantPreset
+                quantPreset: self.settingsStore.installedQuantPreset
             )
             self.statusText = self.defaultStatusText()
 

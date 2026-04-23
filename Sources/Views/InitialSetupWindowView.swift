@@ -58,7 +58,7 @@ struct InitialSetupWindowView: View {
             Text("Recommended Setup")
                 .font(.headline)
 
-            Text("Start with Qwen2.5 0.5B on the Balanced size. This is the fastest and most stable first setup for most Macs.")
+            Text("Start with Qwen2.5 0.5B. TextKit downloads one balanced local file for each model, and you can switch response mode later.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -113,7 +113,6 @@ struct InitialSetupWindowView: View {
 
     private func startRecommendedSetup() {
         appModel.settingsStore.localModelOption = .stable
-        appModel.settingsStore.quantPreset = .balanced
         appModel.setupManager.resetFailure()
         appModel.startSetup()
     }

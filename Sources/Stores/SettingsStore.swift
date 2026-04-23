@@ -39,6 +39,10 @@ final class SettingsStore {
         }
     }
 
+    var installedQuantPreset: QuantPreset {
+        .balanced
+    }
+
     var quantPreset: QuantPreset {
         didSet {
             defaults.set(quantPreset.rawValue, forKey: Keys.quantPreset)
@@ -82,13 +86,17 @@ final class SettingsStore {
         self.defaults = resolvedDefaults
         self.localModelOption = LocalModelOption(rawValue: resolvedDefaults.string(forKey: Keys.localModelOption) ?? "") ?? .stable
         self.modelProfile = ModelProfile(rawValue: resolvedDefaults.string(forKey: Keys.modelProfile) ?? "") ?? .balanced
-        self.quantPreset = QuantPreset(rawValue: resolvedDefaults.string(forKey: Keys.quantPreset) ?? "") ?? .balanced
+        self.quantPreset = .balanced
         self.autoClipEnabled = resolvedDefaults.object(forKey: Keys.autoClipEnabled) as? Bool ?? true
         self.defaultFallbackTool = ToolKind(rawValue: resolvedDefaults.string(forKey: Keys.defaultFallbackTool) ?? "") ?? .rewrite
         self.warmCacheSeconds = resolvedDefaults.object(forKey: Keys.warmCacheSeconds) as? Double ?? 45
         self.strictModeEnabled = resolvedDefaults.object(forKey: Keys.strictModeEnabled) as? Bool ?? false
         self.hasShownInitialSetupPrompt = resolvedDefaults.object(forKey: Keys.hasShownInitialSetupPrompt) as? Bool ?? false
         self.modeConfigurations = SettingsStore.loadPromptProfile(from: resolvedDefaults)
+
+        if resolvedDefaults.string(forKey: Keys.quantPreset) != installedQuantPreset.rawValue {
+            resolvedDefaults.set(installedQuantPreset.rawValue, forKey: Keys.quantPreset)
+        }
     }
 
     func promptConfiguration(for mode: ToolMode) -> ModePromptConfiguration {

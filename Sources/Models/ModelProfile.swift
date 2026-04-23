@@ -11,6 +11,17 @@ enum ModelProfile: String, CaseIterable, Codable, Identifiable {
         rawValue.capitalized
     }
 
+    var helperDetail: String {
+        switch self {
+        case .fast:
+            "Returns shorter results more quickly."
+        case .balanced:
+            "Best default for most clips and everyday use."
+        case .quality:
+            "Allows more detail and a little more work per response."
+        }
+    }
+
     var tokenBudgetMultiplier: Double {
         switch self {
         case .fast:

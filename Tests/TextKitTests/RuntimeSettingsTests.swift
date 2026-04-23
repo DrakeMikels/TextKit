@@ -77,13 +77,30 @@ struct RuntimeSettingsTests {
         #expect(store.generationSettingsRevision == initialGenerationRevision + 1)
         #expect(store.runtimeSelectionRevision == initialRuntimeRevision)
 
-        store.quantPreset = .quality
+        store.modelProfile = .quality
         #expect(store.generationSettingsRevision == initialGenerationRevision + 2)
-        #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 1)
+        #expect(store.runtimeSelectionRevision == initialRuntimeRevision)
 
         store.localModelOption = .experimental
         #expect(store.generationSettingsRevision == initialGenerationRevision + 3)
-        #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 2)
+        #expect(store.runtimeSelectionRevision == initialRuntimeRevision + 1)
+    }
+
+    @Test
+    @MainActor
+    func settingsStoreNormalizesInstalledQuantToBalanced() {
+        let suiteName = "TextKitTests.SettingsStoreQuantMigration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(QuantPreset.quality.rawValue, forKey: "settings.quantPreset")
+
+        let store = SettingsStore(defaults: defaults)
+
+        #expect(store.installedQuantPreset == .balanced)
+        #expect(store.quantPreset == .balanced)
+        #expect(defaults.string(forKey: "settings.quantPreset") == QuantPreset.balanced.rawValue)
     }
 
     @Test

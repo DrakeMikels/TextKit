@@ -12,7 +12,7 @@ struct SetupStatusView: View {
     private var selectedModel: LocalModelDescriptor {
         modelManager.model(
             for: settingsStore.localModelOption,
-            quantPreset: settingsStore.quantPreset
+            quantPreset: settingsStore.installedQuantPreset
         )
     }
 
@@ -33,7 +33,6 @@ struct SetupStatusView: View {
     private var refreshKey: String {
         [
             settingsStore.localModelOption.rawValue,
-            settingsStore.quantPreset.rawValue,
             setupManager.isRunning ? "running" : "idle",
             setupManager.hasFailure ? "failed" : "ok"
         ].joined(separator: "|")
@@ -47,7 +46,6 @@ struct SetupStatusView: View {
                 progressSection
             } else {
                 modelChoiceSection
-                modelSizeSection
                 installSection
             }
         }
@@ -154,34 +152,9 @@ struct SetupStatusView: View {
         .buttonStyle(.plain)
     }
 
-    private var modelSizeSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("2. Pick a download size")
-                .font(.subheadline.weight(.semibold))
-
-            Picker("Model Size", selection: $settingsStore.quantPreset) {
-                ForEach(QuantPreset.allCases) { preset in
-                    Text(preset.title).tag(preset)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(setupManager.isRunning)
-
-            Text(settingsStore.quantPreset.helperDetail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Selected download: \(selectedModel.suggestedFilename)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        }
-    }
-
     private var installSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("3. Download and start")
+            Text("2. Download and start")
                 .font(.subheadline.weight(.semibold))
 
             Text(installSummary)
@@ -271,7 +244,7 @@ struct SetupStatusView: View {
             return setupManager.summary(for: selectedState, model: selectedModel)
         }
 
-        return "TextKit downloads one local model to your Mac, then runs fully on-device after setup."
+        return "TextKit downloads one balanced local file per model, then runs fully on-device after setup."
     }
 
     private var installSummary: String {
@@ -281,9 +254,9 @@ struct SetupStatusView: View {
 
         switch selectedState {
         case .missingRuntime:
-            return "TextKit will install its local AI runtime first, then download \(selectedModel.displayName)."
+            return "TextKit will install its local AI runtime first, then download the balanced \(selectedModel.displayName) file."
         case .missingModel, .unknown:
-            return "TextKit will download \(selectedModel.displayName) once, then keep using it offline on this Mac."
+            return "TextKit will download the balanced \(selectedModel.displayName) file once, then keep using it offline on this Mac."
         case .ready:
             return "\(selectedModel.displayName) is already installed. You can switch models here any time."
         case .running:
@@ -359,7 +332,7 @@ struct SetupStatusView: View {
         for modelOption in LocalModelOption.allCases {
             updatedStates[modelOption] = await modelManager.availability(
                 for: modelOption,
-                quantPreset: settingsStore.quantPreset
+                quantPreset: settingsStore.installedQuantPreset
             )
         }
         modelStates = updatedStates
