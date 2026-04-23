@@ -124,6 +124,8 @@ printf '%s\n' \
   '</plist>' \
   >"$INFO_PLIST"
 
+codesign --force --deep --sign - "$APP_BUNDLE"
+
 mkdir -p "$STAGING_DIR"
 cp -R "$APP_BUNDLE" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
