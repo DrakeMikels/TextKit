@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 @main
@@ -13,13 +14,18 @@ struct TextKitApp: App {
             initialSetupWindowController?.present()
         }
 
+        NSApp.applicationIconImage = AppIconProvider.applicationIconImage()
+
         self._appModel = State(initialValue: appModel)
         self.initialSetupWindowController = initialSetupWindowController
     }
 
     var body: some Scene {
-        MenuBarExtra("TextKit", systemImage: "text.quote") {
+        MenuBarExtra {
             ContentView(appModel: appModel)
+        } label: {
+            Image(nsImage: AppIconProvider.menuBarImage())
+                .help("TextKit")
         }
         .menuBarExtraStyle(.window)
 
