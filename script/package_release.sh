@@ -55,12 +55,25 @@ while [[ $# -gt 0 ]]; do
       VERSION="${2:-}"
       shift 2
       ;;
+    v*)
+      VERSION="${1#v}"
+      shift
+      ;;
+    [0-9]*)
+      VERSION="$1"
+      shift
+      ;;
     *)
-      echo "usage: $0 [--fresh-first-run] [--version x.y.z] [--open]" >&2
+      echo "usage: $0 [--fresh-first-run] [--version x.y.z|x.y.z] [--open]" >&2
       exit 2
       ;;
   esac
 done
+
+if [[ -z "$VERSION" ]]; then
+  echo "Release version is required." >&2
+  exit 2
+fi
 
 if [[ "$MODE" == "fresh-first-run" ]]; then
   APP_BINARY="$APP_MACOS/TextKit-bin"
@@ -340,7 +353,9 @@ fi
 
 echo "Built app: $APP_BUNDLE"
 echo "Built ZIP: $ZIP_PATH"
+shasum -a 256 "$ZIP_PATH"
 echo "Built DMG: $DMG_PATH"
+shasum -a 256 "$DMG_PATH"
 
 if [[ "$OPEN_RESULT" -eq 1 ]]; then
   open -R "$DMG_PATH"

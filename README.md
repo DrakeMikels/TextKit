@@ -154,6 +154,8 @@ Generated artifacts are written under:
 dist/release/
 ```
 
+See `docs/distribution.md` for GitHub Actions, signing/notarization secrets, release artifacts, and Homebrew tap publishing.
+
 ## Repository Layout
 
 - `Sources/App`: app entrypoint and menu bar delegate

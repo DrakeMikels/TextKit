@@ -46,26 +46,32 @@ copy_as() {
 
 mkdir -p "$RUNTIME_BIN" "$RUNTIME_LIB" "$RUNTIME_BACKENDS"
 
-LLAMA_COMPLETION_SOURCE="$(realpath_py /opt/homebrew/bin/llama-completion)"
-LLAMA_CLI_SOURCE="$(realpath_py /opt/homebrew/bin/llama-cli)"
-LLAMA_SERVER_SOURCE="$(realpath_py /opt/homebrew/bin/llama-server)"
+BREW_PREFIX="$(brew --prefix)"
+LLAMA_PREFIX="$(brew --prefix llama.cpp)"
+GGML_PREFIX="$(brew --prefix ggml)"
+OPENSSL_PREFIX="$(brew --prefix openssl@3)"
+LIBOMP_PREFIX="$(brew --prefix libomp)"
 
-LIB_LLAMA_COMMON_SOURCE="$(realpath_py /opt/homebrew/opt/llama.cpp/lib/libllama-common.0.dylib)"
-LIB_LLAMA_SOURCE="$(realpath_py /opt/homebrew/opt/llama.cpp/lib/libllama.0.dylib)"
-LIB_MTMD_SOURCE="$(realpath_py /opt/homebrew/opt/llama.cpp/lib/libmtmd.0.dylib)"
+LLAMA_COMPLETION_SOURCE="$(realpath_py "$BREW_PREFIX/bin/llama-completion")"
+LLAMA_CLI_SOURCE="$(realpath_py "$BREW_PREFIX/bin/llama-cli")"
+LLAMA_SERVER_SOURCE="$(realpath_py "$BREW_PREFIX/bin/llama-server")"
 
-LIB_GGML_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/lib/libggml.0.dylib)"
-LIB_GGML_BASE_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/lib/libggml-base.0.dylib)"
+LIB_LLAMA_COMMON_SOURCE="$(realpath_py "$LLAMA_PREFIX/lib/libllama-common.0.dylib")"
+LIB_LLAMA_SOURCE="$(realpath_py "$LLAMA_PREFIX/lib/libllama.0.dylib")"
+LIB_MTMD_SOURCE="$(realpath_py "$LLAMA_PREFIX/lib/libmtmd.0.dylib")"
 
-LIB_SSL_SOURCE="$(realpath_py /opt/homebrew/opt/openssl@3/lib/libssl.3.dylib)"
-LIB_CRYPTO_SOURCE="$(realpath_py /opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib)"
-LIB_OMP_SOURCE="$(realpath_py /opt/homebrew/opt/libomp/lib/libomp.dylib)"
+LIB_GGML_SOURCE="$(realpath_py "$GGML_PREFIX/lib/libggml.0.dylib")"
+LIB_GGML_BASE_SOURCE="$(realpath_py "$GGML_PREFIX/lib/libggml-base.0.dylib")"
 
-BACKEND_METAL_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/libexec/libggml-metal.so)"
-BACKEND_BLAS_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/libexec/libggml-blas.so)"
-BACKEND_CPU_M1_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/libexec/libggml-cpu-apple_m1.so)"
-BACKEND_CPU_M2_M3_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/libexec/libggml-cpu-apple_m2_m3.so)"
-BACKEND_CPU_M4_SOURCE="$(realpath_py /opt/homebrew/opt/ggml/libexec/libggml-cpu-apple_m4.so)"
+LIB_SSL_SOURCE="$(realpath_py "$OPENSSL_PREFIX/lib/libssl.3.dylib")"
+LIB_CRYPTO_SOURCE="$(realpath_py "$OPENSSL_PREFIX/lib/libcrypto.3.dylib")"
+LIB_OMP_SOURCE="$(realpath_py "$LIBOMP_PREFIX/lib/libomp.dylib")"
+
+BACKEND_METAL_SOURCE="$(realpath_py "$GGML_PREFIX/libexec/libggml-metal.so")"
+BACKEND_BLAS_SOURCE="$(realpath_py "$GGML_PREFIX/libexec/libggml-blas.so")"
+BACKEND_CPU_M1_SOURCE="$(realpath_py "$GGML_PREFIX/libexec/libggml-cpu-apple_m1.so")"
+BACKEND_CPU_M2_M3_SOURCE="$(realpath_py "$GGML_PREFIX/libexec/libggml-cpu-apple_m2_m3.so")"
+BACKEND_CPU_M4_SOURCE="$(realpath_py "$GGML_PREFIX/libexec/libggml-cpu-apple_m4.so")"
 
 copy_as "$LLAMA_COMPLETION_SOURCE" "$RUNTIME_BIN/llama-completion"
 copy_as "$LLAMA_CLI_SOURCE" "$RUNTIME_BIN/llama-cli"
@@ -101,10 +107,10 @@ for binary in "$RUNTIME_BIN/llama-completion" "$RUNTIME_BIN/llama-cli" "$RUNTIME
   maybe_change_install_name "$binary" "@rpath/libllama-common.0.dylib" "@executable_path/../lib/libllama-common.0.dylib"
   maybe_change_install_name "$binary" "@rpath/libllama.0.dylib" "@executable_path/../lib/libllama.0.dylib"
   maybe_change_install_name "$binary" "@rpath/libmtmd.0.dylib" "@executable_path/../lib/libmtmd.0.dylib"
-  maybe_change_install_name "$binary" "/opt/homebrew/opt/ggml/lib/libggml.0.dylib" "@executable_path/../lib/libggml.0.dylib"
-  maybe_change_install_name "$binary" "/opt/homebrew/opt/ggml/lib/libggml-base.0.dylib" "@executable_path/../lib/libggml-base.0.dylib"
-  maybe_change_install_name "$binary" "/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib" "@executable_path/../lib/libssl.3.dylib"
-  maybe_change_install_name "$binary" "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib" "@executable_path/../lib/libcrypto.3.dylib"
+  maybe_change_install_name "$binary" "$GGML_PREFIX/lib/libggml.0.dylib" "@executable_path/../lib/libggml.0.dylib"
+  maybe_change_install_name "$binary" "$GGML_PREFIX/lib/libggml-base.0.dylib" "@executable_path/../lib/libggml-base.0.dylib"
+  maybe_change_install_name "$binary" "$OPENSSL_PREFIX/lib/libssl.3.dylib" "@executable_path/../lib/libssl.3.dylib"
+  maybe_change_install_name "$binary" "$OPENSSL_PREFIX/lib/libcrypto.3.dylib" "@executable_path/../lib/libcrypto.3.dylib"
 done
 
 for library in \
@@ -115,14 +121,13 @@ for library in \
   "$RUNTIME_LIB/libggml-base.0.dylib" \
   "$RUNTIME_LIB/libssl.3.dylib"; do
   maybe_change_install_name "$library" "@rpath/libllama.0.dylib" "@loader_path/libllama.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/llama.cpp/lib/libllama-common.0.dylib" "@loader_path/libllama-common.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/llama.cpp/lib/libllama.0.dylib" "@loader_path/libllama.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/llama.cpp/lib/libmtmd.0.dylib" "@loader_path/libmtmd.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/ggml/lib/libggml.0.dylib" "@loader_path/libggml.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/ggml/lib/libggml-base.0.dylib" "@loader_path/libggml-base.0.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/openssl@3/lib/libssl.3.dylib" "@loader_path/libssl.3.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/Cellar/openssl@3/3.6.2/lib/libcrypto.3.dylib" "@loader_path/libcrypto.3.dylib"
-  maybe_change_install_name "$library" "/opt/homebrew/opt/openssl@3/lib/libcrypto.3.dylib" "@loader_path/libcrypto.3.dylib"
+  maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libllama-common.0.dylib" "@loader_path/libllama-common.0.dylib"
+  maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libllama.0.dylib" "@loader_path/libllama.0.dylib"
+  maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libmtmd.0.dylib" "@loader_path/libmtmd.0.dylib"
+  maybe_change_install_name "$library" "$GGML_PREFIX/lib/libggml.0.dylib" "@loader_path/libggml.0.dylib"
+  maybe_change_install_name "$library" "$GGML_PREFIX/lib/libggml-base.0.dylib" "@loader_path/libggml-base.0.dylib"
+  maybe_change_install_name "$library" "$OPENSSL_PREFIX/lib/libssl.3.dylib" "@loader_path/libssl.3.dylib"
+  maybe_change_install_name "$library" "$OPENSSL_PREFIX/lib/libcrypto.3.dylib" "@loader_path/libcrypto.3.dylib"
 done
 
 for backend in \
@@ -132,7 +137,7 @@ for backend in \
   "$RUNTIME_BACKENDS/libggml-cpu-apple_m2_m3.so" \
   "$RUNTIME_BACKENDS/libggml-cpu-apple_m4.so"; do
   maybe_change_install_name "$backend" "@rpath/libggml-base.0.dylib" "@loader_path/../lib/libggml-base.0.dylib"
-  maybe_change_install_name "$backend" "/opt/homebrew/opt/libomp/lib/libomp.dylib" "@loader_path/../lib/libomp.dylib"
+  maybe_change_install_name "$backend" "$LIBOMP_PREFIX/lib/libomp.dylib" "@loader_path/../lib/libomp.dylib"
 done
 
 codesign --force --sign - "$RUNTIME_LIB/libllama.0.dylib"

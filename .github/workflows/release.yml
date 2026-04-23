@@ -1,0 +1,232 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package, sign, notarize, and publish release
+    runs-on: macos-26
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+
+          if [[ -z "$VERSION" ]]; then
+            echo "Release version is required." >&2
+            exit 1
+          fi
+
+          echo "value=$VERSION" >>"$GITHUB_OUTPUT"
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install bundled runtime dependencies
+        shell: bash
+        run: |
+          brew update
+          brew install llama.cpp
+
+      - name: Validate signing and notarization secrets
+        shell: bash
+        env:
+          CERTIFICATE_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          CODESIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          missing=0
+
+          for name in CERTIFICATE_P12 CERTIFICATE_PASSWORD CODESIGN_IDENTITY; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing required signing secret: $name" >&2
+              missing=1
+            fi
+          done
+
+          has_api_key=0
+          if [[ -n "$APPLE_API_KEY_P8" && -n "$APPLE_API_KEY_ID" && -n "$APPLE_API_ISSUER_ID" ]]; then
+            has_api_key=1
+          fi
+
+          has_password_auth=0
+          if [[ -n "$APPLE_ID" && -n "$APPLE_TEAM_ID" && -n "$APPLE_APP_SPECIFIC_PASSWORD" ]]; then
+            has_password_auth=1
+          fi
+
+          if [[ "$has_api_key" -ne 1 && "$has_password_auth" -ne 1 ]]; then
+            echo "Missing notarization secrets. Configure either APPLE_API_KEY_P8/APPLE_API_KEY_ID/APPLE_API_ISSUER_ID or APPLE_ID/APPLE_TEAM_ID/APPLE_APP_SPECIFIC_PASSWORD." >&2
+            missing=1
+          fi
+
+          exit "$missing"
+
+      - name: Import Developer ID certificate
+        shell: bash
+        env:
+          CERTIFICATE_P12: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.token }}
+        run: |
+          TEMP_KEYCHAIN="$RUNNER_TEMP/textkit-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/developer-id.p12"
+
+          echo "$CERTIFICATE_P12" | base64 --decode >"$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$TEMP_KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$TEMP_KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$TEMP_KEYCHAIN"
+          security import "$CERT_PATH" -k "$TEMP_KEYCHAIN" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychain -d user -s \
+            "$TEMP_KEYCHAIN" \
+            /Library/Keychains/System.keychain \
+            "$HOME/Library/Keychains/login.keychain-db"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$TEMP_KEYCHAIN"
+
+      - name: Package release app
+        shell: bash
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_IDENTITY }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: ./script/package_release.sh "${{ steps.version.outputs.value }}"
+
+      - name: Verify signed app bundle
+        shell: bash
+        run: |
+          codesign --verify --deep --strict --verbose=2 dist/release/TextKit.app
+          spctl -a -vv -t exec dist/release/TextKit.app || true
+
+      - name: Generate Homebrew cask
+        shell: bash
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: ./script/render_cask.sh "${{ steps.version.outputs.value }}" "dist/release/TextKit.zip" "dist/release/textkit.rb"
+
+      - name: Upload release artifacts to workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: textkit-release-${{ steps.version.outputs.value }}
+          path: |
+            dist/release/TextKit.zip
+            dist/release/TextKit.dmg
+            dist/release/textkit.rb
+
+      - name: Publish GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.version.outputs.value }}"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "TextKit $TAG" --generate-notes
+          fi
+
+          gh release upload "$TAG" \
+            dist/release/TextKit.zip \
+            dist/release/TextKit.dmg \
+            dist/release/textkit.rb \
+            --clobber
+
+  publish-homebrew-cask:
+    name: Publish Homebrew cask
+    needs: package
+    runs-on: ubuntu-latest
+    env:
+      HOMEBREW_TAP_REPOSITORY: ${{ secrets.HOMEBREW_TAP_REPOSITORY }}
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+    steps:
+      - name: Resolve tap publishing
+        id: tap
+        shell: bash
+        run: |
+          if [[ -z "${HOMEBREW_TAP_REPOSITORY}" || -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]]; then
+            echo "Homebrew tap secrets are not configured; skipping tap publish."
+            echo "enabled=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "enabled=true" >>"$GITHUB_OUTPUT"
+
+      - name: Download release artifacts
+        if: ${{ steps.tap.outputs.enabled == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: textkit-release-${{ needs.package.outputs.version }}
+          path: dist/release
+
+      - name: Check out Homebrew tap
+        if: ${{ steps.tap.outputs.enabled == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.HOMEBREW_TAP_REPOSITORY }}
+          token: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN }}
+          path: tap
+
+      - name: Install generated cask into tap
+        if: ${{ steps.tap.outputs.enabled == 'true' }}
+        shell: bash
+        env:
+          CASK_DESTINATION: ${{ vars.HOMEBREW_TAP_CASK_PATH }}
+        run: |
+          DESTINATION="${CASK_DESTINATION:-Casks/textkit.rb}"
+          mkdir -p "$(dirname "tap/$DESTINATION")"
+          cp dist/release/textkit.rb "tap/$DESTINATION"
+
+      - name: Commit and push tap update
+        if: ${{ steps.tap.outputs.enabled == 'true' }}
+        shell: bash
+        working-directory: tap
+        env:
+          CASK_DESTINATION: ${{ vars.HOMEBREW_TAP_CASK_PATH }}
+        run: |
+          DESTINATION="${CASK_DESTINATION:-Casks/textkit.rb}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -z "$(git status --porcelain -- "$DESTINATION")" ]]; then
+            echo "No cask changes to commit."
+            exit 0
+          fi
+
+          git add "$DESTINATION"
+          git commit -m "Update TextKit cask for v${{ needs.package.outputs.version }}"
+          git push
