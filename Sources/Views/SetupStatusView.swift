@@ -254,7 +254,7 @@ struct SetupStatusView: View {
 
         switch selectedState {
         case .missingRuntime:
-            return "TextKit will install its local AI runtime first, then download the balanced \(selectedModel.displayName) file."
+            return "This copy of TextKit is missing its built-in local AI runtime. Reinstall the app to continue."
         case .missingModel, .unknown:
             return "TextKit will download the balanced \(selectedModel.displayName) file once, then keep using it offline on this Mac."
         case .ready:
@@ -273,7 +273,7 @@ struct SetupStatusView: View {
 
         switch selectedState {
         case .missingRuntime:
-            return "Install and Download \(selectedModel.displayName)"
+            return "Check Again"
         case .missingModel, .unknown:
             return "Download \(selectedModel.displayName)"
         case .ready:

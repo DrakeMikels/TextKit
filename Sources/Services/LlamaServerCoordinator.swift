@@ -100,6 +100,7 @@ actor LlamaServerCoordinator {
             "--reasoning", "off",
             "--verbosity", "1"
         ]
+        process.environment = mergedRuntimeEnvironment()
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] _ in
@@ -262,6 +263,14 @@ actor LlamaServerCoordinator {
                 modelManager.markReady(isWarm: false)
             }
         }
+    }
+
+    private func mergedRuntimeEnvironment() -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        for (key, value) in RuntimeLocator.processEnvironment() {
+            environment[key] = value
+        }
+        return environment
     }
 }
 

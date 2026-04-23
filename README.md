@@ -23,11 +23,10 @@ The workspace currently has Command Line Tools selected globally, so the local r
 
 ## Model plan
 
-The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, executed through Homebrew's `llama.cpp` tools.
+The current default model target is the official Hugging Face repo `Qwen/Qwen2.5-0.5B-Instruct-GGUF`, executed through a bundled `llama.cpp` runtime in packaged builds.
 
-- Default quant preset: `Balanced`
-- Default suggested file: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
-- Runtime: `llama-completion`
+- Packaged app runtime: bundled `llama-completion`, `llama-cli`, and `llama-server`
+- Default installed file: `qwen2.5-0.5b-instruct-q4_k_m.gguf`
 - Inference mode: offline after first cache download
 
 TextKit also includes an experimental larger-model option:
@@ -43,9 +42,9 @@ The app invokes `llama-completion` directly and uses the standard Hugging Face c
 ./script/setup_model_runtime.sh
 ```
 
-That command:
+That developer utility command:
 
-- installs `llama.cpp` with Homebrew if needed
+- uses the local `llama.cpp` install from your development machine
 - caches the default balanced quant for `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
 - runs a one-shot smoke test
 
@@ -62,6 +61,8 @@ To cache the experimental model instead:
 ```
 
 After setup, the app uses `--offline` so normal inference does not depend on network access.
+
+Packaged prerelease and release builds do not require Homebrew on the end user's Mac because the app bundles its own local runtime.
 
 ## Advanced prompt controls
 
@@ -137,4 +138,4 @@ To compare the experimental model against the same rewrite suites:
 
 ## Release notes
 
-Git is initialized from the start so we can commit incrementally as the app evolves. Homebrew tap/cask work is intentionally deferred until there is a signed, working release artifact worth publishing.
+Git is initialized from the start so we can commit incrementally as the app evolves. The release script now bundles the local AI runtime into `TextKit.app` and supports optional Developer ID signing plus notarization when Apple credentials are available. Homebrew tap/cask work is still deferred until the signed release path is finalized.

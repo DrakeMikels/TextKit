@@ -14,7 +14,7 @@ enum InferenceEngineError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .missingRuntime(command):
-            return "llama.cpp is not installed. Run \(command)."
+            return "The local AI runtime is missing. Reinstall TextKit, or run \(command) if you're setting up the repo locally."
         case let .modelNotInstalled(command):
             return "The Qwen model is not cached locally yet. Run \(command)."
         case let .executionFailed(message):
@@ -100,7 +100,8 @@ struct InferenceEngine {
         do {
             result = try await ProcessRunner.run(
                 executableURL: executableURL,
-                arguments: arguments(for: request, prompt: prompt, model: model)
+                arguments: arguments(for: request, prompt: prompt, model: model),
+                environment: RuntimeLocator.processEnvironment()
             )
         } catch let error as ProcessRunnerError {
             switch error {

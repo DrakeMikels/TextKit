@@ -5,20 +5,14 @@ import Observation
 @Observable
 final class SetupManager {
     private enum SetupError: LocalizedError {
-        case homebrewMissing
-        case runtimeInstallFailed(String)
         case runtimeStillMissing
         case downloadFailed(String)
         case verificationFailed(String)
 
         var errorDescription: String? {
             switch self {
-            case .homebrewMissing:
-                return "Homebrew is required before TextKit can install its local AI tools."
-            case let .runtimeInstallFailed(message):
-                return message
             case .runtimeStillMissing:
-                return "TextKit installed the local AI tools, but they still are not available."
+                return "This copy of TextKit is missing its local AI runtime. Reinstall the app to continue."
             case let .downloadFailed(message):
                 return message
             case let .verificationFailed(message):
@@ -47,35 +41,23 @@ final class SetupManager {
         isRunning = true
         updateProgress(
             title: "Checking your Mac",
-            detail: "Looking for the local AI tools and selected model.",
+            detail: "Looking for the bundled local AI runtime and selected model.",
             progress: 0.08
         )
 
         defer { isRunning = false }
 
         do {
-            guard let brewURL = Self.resolveExecutable(named: "brew") else {
-                throw SetupError.homebrewMissing
-            }
-
             if !runtimeToolsAvailable {
                 updateProgress(
-                    title: "Installing local AI tools",
-                    detail: "Adding the tools TextKit needs to run on-device.",
+                    title: "Checking local AI runtime",
+                    detail: "TextKit is confirming that its built-in local AI runtime is available.",
                     progress: 0.28
                 )
-
-                do {
-                    _ = try await ProcessRunner.run(
-                        executableURL: brewURL,
-                        arguments: ["install", "llama.cpp"]
-                    )
-                } catch {
-                    throw SetupError.runtimeInstallFailed(error.localizedDescription)
-                }
+                throw SetupError.runtimeStillMissing
             }
 
-            guard let completionExecutableURL = Self.resolveExecutable(named: "llama-completion") else {
+            guard let completionExecutableURL = RuntimeLocator.executableURL(named: "llama-completion") else {
                 throw SetupError.runtimeStillMissing
             }
 
@@ -89,7 +71,8 @@ final class SetupManager {
                 do {
                     _ = try await ProcessRunner.run(
                         executableURL: completionExecutableURL,
-                        arguments: downloadArguments(for: model)
+                        arguments: downloadArguments(for: model),
+                        environment: RuntimeLocator.processEnvironment()
                     )
                 } catch {
                     throw SetupError.downloadFailed(error.localizedDescription)
@@ -105,7 +88,8 @@ final class SetupManager {
             do {
                 _ = try await ProcessRunner.run(
                     executableURL: completionExecutableURL,
-                    arguments: verificationArguments(for: model)
+                    arguments: verificationArguments(for: model),
+                    environment: RuntimeLocator.processEnvironment()
                 )
             } catch {
                 throw SetupError.verificationFailed(error.localizedDescription)
@@ -138,7 +122,7 @@ final class SetupManager {
 
         switch runtimeState {
         case .missingRuntime:
-            return "Install Local AI"
+            return "Check Again"
         case .missingModel:
             return "Download Model"
         default:
@@ -157,7 +141,7 @@ final class SetupManager {
 
         switch runtimeState {
         case .missingRuntime:
-            return "TextKit needs a few local AI tools before it can run on this Mac."
+            return "TextKit couldn't find its bundled local AI runtime. Reinstall the app to continue."
         case .missingModel:
             return "TextKit needs to download the selected model once before it can work offline."
         default:
@@ -166,20 +150,21 @@ final class SetupManager {
     }
 
     private var runtimeToolsAvailable: Bool {
-        Self.resolveExecutable(named: "llama-completion") != nil
-            && Self.resolveExecutable(named: "llama-cli") != nil
-            && Self.resolveExecutable(named: "llama-server") != nil
+        RuntimeLocator.executableURL(named: "llama-completion") != nil
+            && RuntimeLocator.executableURL(named: "llama-cli") != nil
+            && RuntimeLocator.executableURL(named: "llama-server") != nil
     }
 
     private func modelIsCached(_ model: LocalModelDescriptor) async -> Bool {
-        guard let probeExecutableURL = Self.resolveExecutable(named: "llama-cli") else {
+        guard let probeExecutableURL = RuntimeLocator.executableURL(named: "llama-cli") else {
             return false
         }
 
         do {
             let result = try await ProcessRunner.run(
                 executableURL: probeExecutableURL,
-                arguments: ["--cache-list"]
+                arguments: ["--cache-list"],
+                environment: RuntimeLocator.processEnvironment()
             )
 
             return result.stdout.contains("\(model.repository):\(model.cacheTag)")
@@ -234,26 +219,5 @@ final class SetupManager {
         stepTitle = title
         stepDetail = detail
         progressValue = progress
-    }
-
-    private static func resolveExecutable(named executable: String) -> URL? {
-        let defaultPaths = [
-            "/opt/homebrew/bin/\(executable)",
-            "/usr/local/bin/\(executable)"
-        ]
-
-        for path in defaultPaths where FileManager.default.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-
-        let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        for directory in environmentPath.split(separator: ":") {
-            let candidatePath = String(directory) + "/" + executable
-            if FileManager.default.isExecutableFile(atPath: candidatePath) {
-                return URL(fileURLWithPath: candidatePath)
-            }
-        }
-
-        return nil
     }
 }

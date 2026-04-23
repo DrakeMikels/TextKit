@@ -45,15 +45,15 @@ final class ModelManager {
     private(set) var runtimeState: ModelRuntimeState = .unknown
 
     var runtimeExecutableURL: URL? {
-        Self.resolveExecutable(named: "llama-completion")
+        RuntimeLocator.executableURL(named: "llama-completion")
     }
 
     var serverExecutableURL: URL? {
-        Self.resolveExecutable(named: "llama-server")
+        RuntimeLocator.executableURL(named: "llama-server")
     }
 
     var runtimeProbeExecutableURL: URL? {
-        Self.resolveExecutable(named: "llama-cli")
+        RuntimeLocator.executableURL(named: "llama-cli")
     }
 
     func model(for modelOption: LocalModelOption, quantPreset: QuantPreset) -> LocalModelDescriptor {
@@ -77,7 +77,7 @@ final class ModelManager {
         case .unknown:
             return "Checking local AI"
         case .missingRuntime:
-            return "Local AI tools missing"
+            return "Local AI runtime missing"
         case .missingModel:
             return "Model not downloaded"
         case .ready:
@@ -96,7 +96,7 @@ final class ModelManager {
         case .unknown:
             return "Checking whether the local AI is ready."
         case .missingRuntime:
-            return "TextKit still needs its local AI tools before it can run on this Mac."
+            return "This copy of TextKit is missing its bundled local AI runtime."
         case .missingModel:
             return "TextKit still needs to download the selected local model."
         case .ready:
@@ -154,7 +154,8 @@ final class ModelManager {
             let model = model(for: modelOption, quantPreset: quantPreset)
             let result = try await ProcessRunner.run(
                 executableURL: probeExecutableURL,
-                arguments: ["--cache-list"]
+                arguments: ["--cache-list"],
+                environment: RuntimeLocator.processEnvironment()
             )
 
             let modelIsCached = result.stdout.contains("\(model.repository):\(model.cacheTag)")
@@ -164,26 +165,5 @@ final class ModelManager {
         } catch {
             return .failed("Couldn't check whether the local AI is ready.")
         }
-    }
-
-    private static func resolveExecutable(named executable: String) -> URL? {
-        let defaultPaths = [
-            "/opt/homebrew/bin/\(executable)",
-            "/usr/local/bin/\(executable)"
-        ]
-
-        for path in defaultPaths where FileManager.default.isExecutableFile(atPath: path) {
-            return URL(fileURLWithPath: path)
-        }
-
-        let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        for directory in environmentPath.split(separator: ":") {
-            let candidatePath = String(directory) + "/" + executable
-            if FileManager.default.isExecutableFile(atPath: candidatePath) {
-                return URL(fileURLWithPath: candidatePath)
-            }
-        }
-
-        return nil
     }
 }

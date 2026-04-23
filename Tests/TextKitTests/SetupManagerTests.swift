@@ -7,7 +7,7 @@ struct SetupManagerTests {
     func choosesActionTitlesFromRuntimeState() {
         let manager = SetupManager()
 
-        #expect(manager.primaryButtonTitle(for: .missingRuntime) == "Install Local AI")
+        #expect(manager.primaryButtonTitle(for: .missingRuntime) == "Check Again")
         #expect(manager.primaryButtonTitle(for: .missingModel) == "Download Model")
         #expect(manager.primaryButtonTitle(for: .ready) == "Set Up Local AI")
     }

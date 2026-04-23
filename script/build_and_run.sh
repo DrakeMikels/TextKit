@@ -12,59 +12,81 @@ DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
-APP_BINARY="$APP_MACOS/$APP_NAME"
+APP_BINARY="$APP_MACOS/$APP_NAME-bin"
+APP_RESOURCES="$APP_CONTENTS/Resources"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
-if [[ -d "$XCODE_DEVELOPER_DIR" ]]; then
-  export DEVELOPER_DIR="${DEVELOPER_DIR:-$XCODE_DEVELOPER_DIR}"
-fi
-
-SWIFT_BIN="swift"
-if [[ -n "${DEVELOPER_DIR:-}" ]]; then
-  TOOLCHAIN_SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
-  if [[ -x "$TOOLCHAIN_SWIFT" ]]; then
-    SWIFT_BIN="$TOOLCHAIN_SWIFT"
+resolve_developer_dir() {
+  if [[ -n "${DEVELOPER_DIR:-}" ]] && [[ -d "$DEVELOPER_DIR" ]]; then
+    printf '%s\n' "$DEVELOPER_DIR"
+    return 0
   fi
-fi
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+  local candidates=(
+    "/Applications/Xcode.app/Contents/Developer"
+    "$XCODE_DEVELOPER_DIR"
+  )
 
-"$SWIFT_BIN" build
-BUILD_BINARY="$("$SWIFT_BIN" build --show-bin-path)/$APP_NAME"
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
 
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS"
-cp "$BUILD_BINARY" "$APP_BINARY"
-chmod +x "$APP_BINARY"
+  xcode-select -p 2>/dev/null || true
+}
 
-printf '%s\n' \
-  '<?xml version="1.0" encoding="UTF-8"?>' \
-  '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
-  '<plist version="1.0">' \
-  '<dict>' \
-  '  <key>CFBundleDisplayName</key>' \
-  "  <string>$APP_NAME</string>" \
-  '  <key>CFBundleExecutable</key>' \
-  "  <string>$APP_NAME</string>" \
-  '  <key>CFBundleIdentifier</key>' \
-  "  <string>$BUNDLE_ID</string>" \
-  '  <key>CFBundleName</key>' \
-  "  <string>$APP_NAME</string>" \
-  '  <key>CFBundlePackageType</key>' \
-  '  <string>APPL</string>' \
-  '  <key>CFBundleShortVersionString</key>' \
-  '  <string>0.1.0</string>' \
-  '  <key>CFBundleVersion</key>' \
-  '  <string>1</string>' \
-  '  <key>LSMinimumSystemVersion</key>' \
-  "  <string>$MIN_SYSTEM_VERSION</string>" \
-  '  <key>LSUIElement</key>' \
-  '  <true/>' \
-  '  <key>NSPrincipalClass</key>' \
-  '  <string>NSApplication</string>' \
-  '</dict>' \
-  '</plist>' \
-  >"$INFO_PLIST"
+write_launcher() {
+  printf '%s\n' \
+    '#!/bin/zsh' \
+    'set -euo pipefail' \
+    '' \
+    'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"' \
+    'RUNTIME_ROOT="$SCRIPT_DIR/../Resources/Runtime"' \
+    '' \
+    'export TEXTKIT_RUNTIME_ROOT="$RUNTIME_ROOT"' \
+    'export GGML_BACKEND_PATH="$RUNTIME_ROOT/backends"' \
+    'export PATH="$RUNTIME_ROOT/bin${PATH:+:$PATH}"' \
+    'export DYLD_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"' \
+    'export DYLD_FALLBACK_LIBRARY_PATH="$RUNTIME_ROOT/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"' \
+    '' \
+    'exec -a "TextKit" "$SCRIPT_DIR/TextKit-bin"' \
+    >"$APP_MACOS/$APP_NAME"
+  chmod +x "$APP_MACOS/$APP_NAME"
+}
+
+write_info_plist() {
+  printf '%s\n' \
+    '<?xml version="1.0" encoding="UTF-8"?>' \
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+    '<plist version="1.0">' \
+    '<dict>' \
+    '  <key>CFBundleDisplayName</key>' \
+    "  <string>$APP_NAME</string>" \
+    '  <key>CFBundleExecutable</key>' \
+    "  <string>$APP_NAME</string>" \
+    '  <key>CFBundleIdentifier</key>' \
+    "  <string>$BUNDLE_ID</string>" \
+    '  <key>CFBundleName</key>' \
+    "  <string>$APP_NAME</string>" \
+    '  <key>CFBundlePackageType</key>' \
+    '  <string>APPL</string>' \
+    '  <key>CFBundleShortVersionString</key>' \
+    '  <string>0.1.0</string>' \
+    '  <key>CFBundleVersion</key>' \
+    '  <string>1</string>' \
+    '  <key>LSMinimumSystemVersion</key>' \
+    "  <string>$MIN_SYSTEM_VERSION</string>" \
+    '  <key>LSUIElement</key>' \
+    '  <true/>' \
+    '  <key>NSPrincipalClass</key>' \
+    '  <string>NSApplication</string>' \
+    '</dict>' \
+    '</plist>' \
+    >"$INFO_PLIST"
+}
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
@@ -86,7 +108,7 @@ launch_fresh_setup_app() {
   open_app
 
   sleep 2
-  pgrep -x "$APP_NAME" >/dev/null || {
+  pgrep -x "$APP_NAME" >/dev/null || pgrep -x "$APP_NAME-bin" >/dev/null || {
     /bin/launchctl unsetenv TEXTKIT_USER_DEFAULTS_SUITE
     /bin/launchctl unsetenv XDG_CACHE_HOME
     return 1
@@ -100,6 +122,33 @@ launch_fresh_setup_app() {
     "Defaults suite: $defaults_suite" \
     "Model cache: $cache_root"
 }
+
+DEVELOPER_DIR="$(resolve_developer_dir)"
+export DEVELOPER_DIR
+
+SWIFT_BIN="swift"
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+  TOOLCHAIN_SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+  if [[ -x "$TOOLCHAIN_SWIFT" ]]; then
+    SWIFT_BIN="$TOOLCHAIN_SWIFT"
+  fi
+fi
+
+pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+pkill -x "$APP_NAME-bin" >/dev/null 2>&1 || true
+
+"$SWIFT_BIN" build
+BUILD_BINARY="$("$SWIFT_BIN" build --show-bin-path)/$APP_NAME"
+
+rm -rf "$APP_BUNDLE"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES"
+cp "$BUILD_BINARY" "$APP_BINARY"
+chmod +x "$APP_BINARY"
+
+write_launcher
+write_info_plist
+"$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
+codesign --force --deep --sign - "$APP_BUNDLE"
 
 case "$MODE" in
   run)
@@ -122,7 +171,7 @@ case "$MODE" in
   --verify|verify)
     open_app
     sleep 2
-    pgrep -x "$APP_NAME" >/dev/null
+    pgrep -x "$APP_NAME" >/dev/null || pgrep -x "$APP_NAME-bin" >/dev/null
     ;;
   *)
     echo "usage: $0 [run|--fresh-setup|--debug|--logs|--telemetry|--verify]" >&2
