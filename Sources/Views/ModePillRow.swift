@@ -5,6 +5,8 @@ struct ModePillRow: View {
     let selectedMode: ToolMode
     let onSelect: (ToolMode) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         let accent = ToolTintPalette.accent(for: selectedMode.tool)
 
@@ -26,9 +28,11 @@ struct ModePillRow: View {
                                 Capsule(style: .continuous)
                                     .fill(
                                         LinearGradient(
-                                            colors: mode == selectedMode
-                                                ? [accent.opacity(0.24), accent.opacity(0.14)]
-                                                : [accent.opacity(0.10), accent.opacity(0.05)],
+                                            colors: TextKitVisualStyle.modeSurfaceColors(
+                                                accent: accent,
+                                                isSelected: mode == selectedMode,
+                                                colorScheme: colorScheme
+                                            ),
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
@@ -37,7 +41,9 @@ struct ModePillRow: View {
                             .overlay {
                                 Capsule(style: .continuous)
                                     .strokeBorder(
-                                        mode == selectedMode ? accent.opacity(0.48) : accent.opacity(0.18),
+                                        mode == selectedMode
+                                            ? accent.opacity(colorScheme == .light ? 0.56 : 0.48)
+                                            : accent.opacity(colorScheme == .light ? 0.28 : 0.18),
                                         lineWidth: mode == selectedMode ? 1.1 : 0.8
                                     )
                             }

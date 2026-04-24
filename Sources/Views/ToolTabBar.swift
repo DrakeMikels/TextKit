@@ -4,6 +4,7 @@ struct ToolTabBar: View {
     let selectedTool: ToolKind
     let onSelect: (ToolKind) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var selectionNamespace
 
     private let rowSpacing: CGFloat = 8
@@ -59,7 +60,7 @@ struct ToolTabBar: View {
                     .frame(width: 24, height: 24)
                     .background(
                         Circle()
-                            .fill(accent.opacity(isSelected ? 0.22 : 0.12))
+                            .fill(accent.opacity(isSelected ? 0.24 : 0.14))
                     )
 
                 Text(tool.title)
@@ -79,9 +80,10 @@ struct ToolTabBar: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: backgroundColors(
-                                        for: tool,
-                                        isSelected: isSelected
+                                    colors: TextKitVisualStyle.toolSurfaceColors(
+                                        accent: accent,
+                                        isSelected: isSelected,
+                                        colorScheme: colorScheme
                                     ),
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -98,7 +100,9 @@ struct ToolTabBar: View {
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
-                                isSelected ? accent.opacity(0.48) : Color.white.opacity(0.08),
+                                isSelected
+                                    ? accent.opacity(colorScheme == .light ? 0.56 : 0.48)
+                                    : TextKitVisualStyle.cardStroke(for: colorScheme),
                                 lineWidth: isSelected ? 1.2 : 0.9
                             )
                     }
@@ -111,20 +115,5 @@ struct ToolTabBar: View {
         }
         .buttonStyle(.plain)
         .help(tool.description)
-    }
-
-    private func backgroundColors(for tool: ToolKind, isSelected: Bool) -> [Color] {
-        let accent = ToolTintPalette.accent(for: tool)
-        if isSelected {
-            return [
-                accent.opacity(0.24),
-                accent.opacity(0.14)
-            ]
-        }
-
-        return [
-            Color.white.opacity(0.06),
-            accent.opacity(0.06)
-        ]
     }
 }

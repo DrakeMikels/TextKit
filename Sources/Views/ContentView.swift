@@ -16,14 +16,8 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(width: 480)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.022), lineWidth: 0.6)
-                }
-        }
+        .background { TextKitPanelBackground() }
+        .groupBoxStyle(TextKitGroupBoxStyle())
         .onChange(of: appModel.inputText) { _, _ in
             appModel.handleInputChange()
         }
@@ -86,6 +80,7 @@ struct ContentView: View {
                         Button(appModel.selectedTool == .reduce ? "Copy Reduced Text" : "Copy Result") {
                             appModel.copyOutputToClipboard()
                         }
+                        .buttonStyle(TextKitActionButtonStyle())
                         .keyboardShortcut("c", modifiers: [.command, .shift])
 
                         Spacer()
@@ -93,6 +88,7 @@ struct ContentView: View {
                         Button("Quit") {
                             appModel.quitApplication()
                         }
+                        .buttonStyle(TextKitActionButtonStyle())
                     }
                 }
             }
@@ -314,16 +310,14 @@ struct ContentView: View {
             Button {
                 appModel.checkForUpdates()
             } label: {
-                Label("Check for Updates", systemImage: "arrow.down.circle")
-                    .labelStyle(.iconOnly)
+                TextKitHeaderIcon(systemName: "arrow.down.circle")
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             .disabled(!appModel.canCheckForUpdates)
             .help("Check for updates")
 
             SettingsLink {
-                Label("Settings", systemImage: "gearshape")
-                    .labelStyle(.iconOnly)
+                TextKitHeaderIcon(systemName: "gearshape")
             }
             .help("Open settings")
         }
