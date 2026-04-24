@@ -107,6 +107,13 @@ for binary in "$RUNTIME_BIN/llama-completion" "$RUNTIME_BIN/llama-cli" "$RUNTIME
   maybe_change_install_name "$binary" "@rpath/libllama-common.0.dylib" "@executable_path/../lib/libllama-common.0.dylib"
   maybe_change_install_name "$binary" "@rpath/libllama.0.dylib" "@executable_path/../lib/libllama.0.dylib"
   maybe_change_install_name "$binary" "@rpath/libmtmd.0.dylib" "@executable_path/../lib/libmtmd.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_LLAMA_COMMON_SOURCE" "@executable_path/../lib/libllama-common.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_LLAMA_SOURCE" "@executable_path/../lib/libllama.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_MTMD_SOURCE" "@executable_path/../lib/libmtmd.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_GGML_SOURCE" "@executable_path/../lib/libggml.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_GGML_BASE_SOURCE" "@executable_path/../lib/libggml-base.0.dylib"
+  maybe_change_install_name "$binary" "$LIB_SSL_SOURCE" "@executable_path/../lib/libssl.3.dylib"
+  maybe_change_install_name "$binary" "$LIB_CRYPTO_SOURCE" "@executable_path/../lib/libcrypto.3.dylib"
   maybe_change_install_name "$binary" "$GGML_PREFIX/lib/libggml.0.dylib" "@executable_path/../lib/libggml.0.dylib"
   maybe_change_install_name "$binary" "$GGML_PREFIX/lib/libggml-base.0.dylib" "@executable_path/../lib/libggml-base.0.dylib"
   maybe_change_install_name "$binary" "$OPENSSL_PREFIX/lib/libssl.3.dylib" "@executable_path/../lib/libssl.3.dylib"
@@ -121,6 +128,13 @@ for library in \
   "$RUNTIME_LIB/libggml-base.0.dylib" \
   "$RUNTIME_LIB/libssl.3.dylib"; do
   maybe_change_install_name "$library" "@rpath/libllama.0.dylib" "@loader_path/libllama.0.dylib"
+  maybe_change_install_name "$library" "$LIB_LLAMA_COMMON_SOURCE" "@loader_path/libllama-common.0.dylib"
+  maybe_change_install_name "$library" "$LIB_LLAMA_SOURCE" "@loader_path/libllama.0.dylib"
+  maybe_change_install_name "$library" "$LIB_MTMD_SOURCE" "@loader_path/libmtmd.0.dylib"
+  maybe_change_install_name "$library" "$LIB_GGML_SOURCE" "@loader_path/libggml.0.dylib"
+  maybe_change_install_name "$library" "$LIB_GGML_BASE_SOURCE" "@loader_path/libggml-base.0.dylib"
+  maybe_change_install_name "$library" "$LIB_SSL_SOURCE" "@loader_path/libssl.3.dylib"
+  maybe_change_install_name "$library" "$LIB_CRYPTO_SOURCE" "@loader_path/libcrypto.3.dylib"
   maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libllama-common.0.dylib" "@loader_path/libllama-common.0.dylib"
   maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libllama.0.dylib" "@loader_path/libllama.0.dylib"
   maybe_change_install_name "$library" "$LLAMA_PREFIX/lib/libmtmd.0.dylib" "@loader_path/libmtmd.0.dylib"
@@ -137,6 +151,8 @@ for backend in \
   "$RUNTIME_BACKENDS/libggml-cpu-apple_m2_m3.so" \
   "$RUNTIME_BACKENDS/libggml-cpu-apple_m4.so"; do
   maybe_change_install_name "$backend" "@rpath/libggml-base.0.dylib" "@loader_path/../lib/libggml-base.0.dylib"
+  maybe_change_install_name "$backend" "$LIB_GGML_BASE_SOURCE" "@loader_path/../lib/libggml-base.0.dylib"
+  maybe_change_install_name "$backend" "$LIB_OMP_SOURCE" "@loader_path/../lib/libomp.dylib"
   maybe_change_install_name "$backend" "$LIBOMP_PREFIX/lib/libomp.dylib" "@loader_path/../lib/libomp.dylib"
 done
 
