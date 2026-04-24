@@ -93,7 +93,7 @@ struct ToolTabBar: View {
                     .overlay {
                         if isSelected {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(accent.opacity(0.12))
+                                .fill(accent.opacity(colorScheme == .light ? 0.12 : 0.14))
                                 .matchedGeometryEffect(id: "selectedToolFill", in: selectionNamespace)
                         }
                     }
@@ -101,13 +101,15 @@ struct ToolTabBar: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
                                 isSelected
-                                    ? accent.opacity(colorScheme == .light ? 0.56 : 0.48)
+                                    ? accent.opacity(colorScheme == .light ? 0.56 : 0.54)
                                     : TextKitVisualStyle.cardStroke(for: colorScheme),
                                 lineWidth: isSelected ? 1.2 : 0.9
                             )
                     }
                     .shadow(
-                        color: isSelected ? accent.opacity(0.18) : Color.black.opacity(0.10),
+                        color: isSelected
+                            ? accent.opacity(colorScheme == .light ? 0.18 : 0.24)
+                            : Color.black.opacity(colorScheme == .light ? 0.10 : 0.18),
                         radius: isSelected ? 14 : 8,
                         y: isSelected ? 6 : 4
                     )

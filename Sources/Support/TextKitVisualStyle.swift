@@ -16,9 +16,9 @@ enum TextKitVisualStyle {
 
         return LinearGradient(
             colors: [
-                Color.white.opacity(0.035),
-                Color(red: 0.05, green: 0.18, blue: 0.16).opacity(0.24),
-                Color.black.opacity(0.18)
+                Color.white.opacity(0.055),
+                Color(red: 0.06, green: 0.22, blue: 0.20).opacity(0.30),
+                Color.black.opacity(0.24)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -39,8 +39,9 @@ enum TextKitVisualStyle {
 
         return LinearGradient(
             colors: [
-                Color.white.opacity(0.055),
-                Color.white.opacity(0.025)
+                Color.white.opacity(0.09),
+                Color(red: 0.07, green: 0.19, blue: 0.18).opacity(0.16),
+                Color.black.opacity(0.06)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -48,15 +49,15 @@ enum TextKitVisualStyle {
     }
 
     static func panelStroke(for colorScheme: ColorScheme) -> Color {
-        colorScheme == .light ? Color.black.opacity(0.16) : Color.white.opacity(0.08)
+        colorScheme == .light ? Color.black.opacity(0.16) : Color.white.opacity(0.12)
     }
 
     static func cardStroke(for colorScheme: ColorScheme) -> Color {
-        colorScheme == .light ? Color.black.opacity(0.08) : Color.white.opacity(0.07)
+        colorScheme == .light ? Color.black.opacity(0.08) : Color.white.opacity(0.105)
     }
 
     static func shadow(for colorScheme: ColorScheme) -> Color {
-        colorScheme == .light ? Color.black.opacity(0.16) : Color.black.opacity(0.30)
+        colorScheme == .light ? Color.black.opacity(0.16) : Color.black.opacity(0.38)
     }
 
     static func toolSurfaceColors(
@@ -71,8 +72,8 @@ enum TextKitVisualStyle {
         }
 
         return isSelected
-            ? [accent.opacity(0.24), accent.opacity(0.14)]
-            : [Color.white.opacity(0.06), accent.opacity(0.06)]
+            ? [accent.opacity(0.30), accent.opacity(0.18), Color.white.opacity(0.055)]
+            : [Color.white.opacity(0.085), accent.opacity(0.08), Color.black.opacity(0.06)]
     }
 
     static func modeSurfaceColors(
@@ -87,8 +88,8 @@ enum TextKitVisualStyle {
         }
 
         return isSelected
-            ? [accent.opacity(0.24), accent.opacity(0.14)]
-            : [accent.opacity(0.10), accent.opacity(0.05)]
+            ? [accent.opacity(0.28), accent.opacity(0.16), Color.white.opacity(0.045)]
+            : [accent.opacity(0.12), Color.white.opacity(0.045)]
     }
 }
 
@@ -104,7 +105,7 @@ struct TextKitPanelBackground: View {
             }
             .overlay(alignment: .topLeading) {
                 Circle()
-                    .fill(Color.white.opacity(colorScheme == .light ? 0.22 : 0.06))
+                    .fill(Color.white.opacity(colorScheme == .light ? 0.22 : 0.10))
                     .frame(width: 180, height: 180)
                     .blur(radius: 42)
                     .offset(x: -72, y: -88)

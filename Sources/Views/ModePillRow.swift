@@ -42,8 +42,8 @@ struct ModePillRow: View {
                                 Capsule(style: .continuous)
                                     .strokeBorder(
                                         mode == selectedMode
-                                            ? accent.opacity(colorScheme == .light ? 0.56 : 0.48)
-                                            : accent.opacity(colorScheme == .light ? 0.28 : 0.18),
+                                            ? accent.opacity(colorScheme == .light ? 0.56 : 0.52)
+                                            : accent.opacity(colorScheme == .light ? 0.28 : 0.24),
                                         lineWidth: mode == selectedMode ? 1.1 : 0.8
                                     )
                             }
