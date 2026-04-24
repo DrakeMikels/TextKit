@@ -5,17 +5,17 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <title>TextKit</title>
     <link>https://github.com/DrakeMikels/TextKit</link>
     <item>
-      <title>0.1.3</title>
-      <pubDate>Fri, 24 Apr 2026 15:23:10 +0000</pubDate>
-      <link>https://github.com/DrakeMikels/TextKit/releases/tag/v0.1.3</link>
-      <sparkle:version>0.1.3</sparkle:version>
-      <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+      <title>0.1.4</title>
+      <pubDate>Fri, 24 Apr 2026 16:31:41 +0000</pubDate>
+      <link>https://github.com/DrakeMikels/TextKit/releases/tag/v0.1.4</link>
+      <sparkle:version>0.1.4</sparkle:version>
+      <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-      <enclosure url="https://github.com/DrakeMikels/TextKit/releases/download/v0.1.3/TextKit.zip" length="12092986" type="application/octet-stream" sparkle:edSignature="oKf3NQVmErNZMW52JNgMgXVssProluMH9loGICysF9UIMKMgtSh5ZHQZH/wGpNcHT9l3fS6dbH+Dny+Luo4sDQ=="></enclosure>
+      <enclosure url="https://github.com/DrakeMikels/TextKit/releases/download/v0.1.4/TextKit.zip" length="12117385" type="application/octet-stream" sparkle:edSignature="XTaOtW5x8VXmah9T9/Jp6Xzn7k6OCKgsMkfJoFJmXl37Ge0VsdQvRjIt2axyWlWhGH9N6G4wRNQ/d93uZ7uYBA=="></enclosure>
     </item>
   </channel>
 </rss><!-- sparkle-signatures:
-edSignature: qxzhSuu/1FpRvYsjpk+cNvYUo5glxoeoX9hPulgB8VjT2a/kNx5k2Fnw9yI6GRnwRhgh+5Y8vC46rZYsd97iAQ==
+edSignature: TZ8hPio46joBQ8DEljW5qI9giYpTJFNxlqifa64QkE5DGOMwnbX1cEgR02ZFXkrbLKk3NbQ+eqqHgk0BhStOCg==
 length: 1195
 -->
