@@ -78,6 +78,7 @@ final class TextKitAppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.applicationIconImage = AppIconProvider.applicationIconImage()
         configureStatusItem()
         configurePopover(appModel: appModel)
+        appModel.startUpdateChecks()
     }
 
     @objc

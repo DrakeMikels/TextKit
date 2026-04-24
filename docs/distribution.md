@@ -8,6 +8,7 @@ The release workflow produces:
 
 - `TextKit.zip`: Homebrew cask source artifact.
 - `TextKit.dmg`: direct download artifact for non-Homebrew users.
+- `appcast.xml`: Sparkle update feed for in-app update checks.
 - `textkit.rb`: generated Homebrew cask for tap publishing.
 
 Artifacts are uploaded to the GitHub Release for tag `v<version>`.
@@ -36,6 +37,7 @@ The release workflow fails before packaging if these values are missing, because
 | `APPLE_API_KEY_P8` | App Store Connect API key private key contents. |
 | `APPLE_API_KEY_ID` | App Store Connect API key ID. |
 | `APPLE_API_ISSUER_ID` | App Store Connect issuer UUID. |
+| `SPARKLE_PRIVATE_ED_KEY` | Private EdDSA key used to sign Sparkle update archives and appcasts. |
 
 Alternative notarization secrets are also supported by `script/package_release.sh`, but the API key path above is preferred:
 
@@ -95,8 +97,16 @@ brew tap <owner>/<tap>
 brew install --cask textkit
 ```
 
+Signed release builds also support in-app update checks through Sparkle. The generated Homebrew cask sets `auto_updates true`, so users can either update in-app or run:
+
+```bash
+brew update
+brew upgrade --cask textkit
+```
+
 ## Security Notes
 
 - `dist/`, `.env*`, `.p8`, certificates, keychains, provisioning profiles, ZIPs, DMGs, PKGs, and local planning docs are ignored by git.
 - Release scripts read credentials only from environment variables or GitHub Actions secrets.
 - The generated cask points at the GitHub Release ZIP and never embeds signing or notarization credentials.
+- Sparkle's public EdDSA key is committed in `script/updater_config.sh`; the matching private key must stay outside the repo and be stored only as `SPARKLE_PRIVATE_ED_KEY` in GitHub Actions secrets.

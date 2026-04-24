@@ -37,6 +37,9 @@ AuthKey.p8
 ExportOptions.plist
 notarytool-profile*
 altool-password*
+sparkle-private*
+*private-ed-key*
+*.edkey
 
 # Generated release artifacts
 *.dmg

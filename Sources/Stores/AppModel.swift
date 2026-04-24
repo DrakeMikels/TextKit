@@ -9,6 +9,7 @@ final class AppModel {
     let settingsStore: SettingsStore
     let modelManager: ModelManager
     let setupManager: SetupManager
+    let updateService: UpdateService
 
     private let clipboardMonitor: ClipboardMonitor
     private let routeEngine: RouteEngine
@@ -39,6 +40,7 @@ final class AppModel {
         settingsStore: SettingsStore = SettingsStore(),
         modelManager: ModelManager = ModelManager(),
         setupManager: SetupManager = SetupManager(),
+        updateService: UpdateService = UpdateService(),
         clipboardMonitor: ClipboardMonitor = ClipboardMonitor(),
         routeEngine: RouteEngine = RouteEngine(),
         promptComposer: PromptComposer = PromptComposer(),
@@ -51,6 +53,7 @@ final class AppModel {
         self.settingsStore = settingsStore
         self.modelManager = modelManager
         self.setupManager = setupManager
+        self.updateService = updateService
         self.clipboardMonitor = clipboardMonitor
         self.routeEngine = routeEngine
         self.promptComposer = promptComposer
@@ -122,6 +125,10 @@ final class AppModel {
 
     var canSubmitReduction: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasPendingReductionChanges
+    }
+
+    var canCheckForUpdates: Bool {
+        updateService.isConfigured
     }
 
     var pinnedInstructionStatusText: String {
@@ -219,6 +226,14 @@ final class AppModel {
             )
             self.statusText = self.defaultStatusText()
         }
+    }
+
+    func startUpdateChecks() {
+        updateService.start()
+    }
+
+    func checkForUpdates() {
+        updateService.checkForUpdates()
     }
 
     func handleRuntimeSelectionChange() {

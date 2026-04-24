@@ -8,12 +8,15 @@ MIN_SYSTEM_VERSION="26.0"
 XCODE_DEVELOPER_DIR="/Volumes/SSD/Applications/Xcode.app/Contents/Developer"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$ROOT_DIR/script/updater_config.sh"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 APP_RESOURCES="$APP_CONTENTS/Resources"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 
 resolve_developer_dir() {
@@ -66,9 +69,45 @@ write_info_plist() {
     '  <true/>' \
     '  <key>NSPrincipalClass</key>' \
     '  <string>NSApplication</string>' \
+    '  <key>SUAutomaticallyUpdate</key>' \
+    '  <true/>' \
+    '  <key>SUEnableAutomaticChecks</key>' \
+    '  <true/>' \
+    '  <key>SUFeedURL</key>' \
+    "  <string>$SPARKLE_APPCAST_URL</string>" \
+    '  <key>SUPublicEDKey</key>' \
+    "  <string>$SPARKLE_PUBLIC_ED_KEY</string>" \
+    '  <key>SUVerifyUpdateBeforeExtraction</key>' \
+    '  <true/>' \
     '</dict>' \
     '</plist>' \
     >"$INFO_PLIST"
+}
+
+copy_sparkle_framework() {
+  local sparkle_framework
+  sparkle_framework="$("$ROOT_DIR/script/resolve_sparkle_distribution.sh" --framework)"
+
+  mkdir -p "$APP_FRAMEWORKS"
+  /usr/bin/ditto "$sparkle_framework" "$APP_FRAMEWORKS/Sparkle.framework"
+}
+
+ensure_app_framework_rpath() {
+  if ! otool -l "$APP_BINARY" | grep -A2 LC_RPATH | grep -q "@executable_path/../Frameworks"; then
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+  fi
+}
+
+codesign_embedded_sparkle() {
+  local sparkle_framework="$APP_FRAMEWORKS/Sparkle.framework"
+
+  [[ -d "$sparkle_framework" ]] || return 0
+
+  codesign --force --sign - "$sparkle_framework/Versions/B/Autoupdate"
+  codesign --force --sign - "$sparkle_framework/Versions/B/XPCServices/Downloader.xpc"
+  codesign --force --sign - "$sparkle_framework/Versions/B/XPCServices/Installer.xpc"
+  codesign --force --sign - "$sparkle_framework/Versions/B/Updater.app"
+  codesign --force --sign - "$sparkle_framework"
 }
 
 open_app() {
@@ -111,6 +150,7 @@ export DEVELOPER_DIR
 
 SWIFT_BIN="swift"
 SWIFT_MODULE_CACHE_DIR="$ROOT_DIR/.tmp/module-cache"
+CLANG_MODULE_CACHE_DIR="$SWIFT_MODULE_CACHE_DIR/clang"
 if [[ -n "${DEVELOPER_DIR:-}" ]]; then
   TOOLCHAIN_SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
   if [[ -x "$TOOLCHAIN_SWIFT" ]]; then
@@ -121,23 +161,27 @@ fi
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 pkill -x "$APP_NAME-bin" >/dev/null 2>&1 || true
 
-mkdir -p "$SWIFT_MODULE_CACHE_DIR"
+mkdir -p "$SWIFT_MODULE_CACHE_DIR" "$CLANG_MODULE_CACHE_DIR"
+export CLANG_MODULE_CACHE_PATH="$CLANG_MODULE_CACHE_DIR"
 "$SWIFT_BIN" -module-cache-path "$SWIFT_MODULE_CACHE_DIR" "$ROOT_DIR/script/render_app_icon.swift"
-"$SWIFT_BIN" build
-BUILD_BINARY="$("$SWIFT_BIN" build --show-bin-path)/$APP_NAME"
+"$SWIFT_BIN" build -Xcc -fmodules-cache-path="$CLANG_MODULE_CACHE_DIR"
+BUILD_BINARY="$("$SWIFT_BIN" build -Xcc -fmodules-cache-path="$CLANG_MODULE_CACHE_DIR" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+ensure_app_framework_rpath
 
 if [[ -d "$ROOT_DIR/Resources" ]]; then
   cp -R "$ROOT_DIR/Resources/." "$APP_RESOURCES/"
 fi
 
+copy_sparkle_framework
 write_info_plist
 "$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
 codesign --force --sign - "$APP_BINARY"
+codesign_embedded_sparkle
 codesign --force --deep --sign - "$APP_BUNDLE"
 
 case "$MODE" in

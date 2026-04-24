@@ -16,6 +16,8 @@ MIN_SYSTEM_VERSION="26.0"
 XCODE_DEVELOPER_DIR="/Volumes/SSD/Applications/Xcode.app/Contents/Developer"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$ROOT_DIR/script/updater_config.sh"
 DIST_DIR="$ROOT_DIR/dist/release"
 STAGING_DIR="$DIST_DIR/dmg-staging"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
@@ -24,9 +26,11 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_EXECUTABLE_NAME="TextKit"
 APP_BINARY="$APP_MACOS/$APP_EXECUTABLE_NAME"
 APP_RESOURCES="$APP_CONTENTS/Resources"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ZIP_PATH="$DIST_DIR/$ZIP_NAME.zip"
 DMG_PATH="$DIST_DIR/$DMG_NAME.dmg"
+APPCAST_PATH="$DIST_DIR/appcast.xml"
 API_KEY_PATH="$DIST_DIR/AuthKey.p8"
 
 cleanup_release_artifacts() {
@@ -187,9 +191,33 @@ write_info_plist() {
     '  <true/>' \
     '  <key>NSPrincipalClass</key>' \
     '  <string>NSApplication</string>' \
+    '  <key>SUAutomaticallyUpdate</key>' \
+    '  <true/>' \
+    '  <key>SUEnableAutomaticChecks</key>' \
+    '  <true/>' \
+    '  <key>SUFeedURL</key>' \
+    "  <string>$SPARKLE_APPCAST_URL</string>" \
+    '  <key>SUPublicEDKey</key>' \
+    "  <string>$SPARKLE_PUBLIC_ED_KEY</string>" \
+    '  <key>SUVerifyUpdateBeforeExtraction</key>' \
+    '  <true/>' \
     '</dict>' \
     '</plist>' \
     >"$INFO_PLIST"
+}
+
+copy_sparkle_framework() {
+  local sparkle_framework
+  sparkle_framework="$("$ROOT_DIR/script/resolve_sparkle_distribution.sh" --framework)"
+
+  mkdir -p "$APP_FRAMEWORKS"
+  /usr/bin/ditto "$sparkle_framework" "$APP_FRAMEWORKS/Sparkle.framework"
+}
+
+ensure_app_framework_rpath() {
+  if ! otool -l "$APP_BINARY" | grep -A2 LC_RPATH | grep -q "@executable_path/../Frameworks"; then
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BINARY"
+  fi
 }
 
 codesign_artifact() {
@@ -205,6 +233,18 @@ codesign_artifact() {
   else
     codesign --force --sign - "$artifact_path"
   fi
+}
+
+codesign_embedded_sparkle() {
+  local sparkle_framework="$APP_FRAMEWORKS/Sparkle.framework"
+
+  [[ -d "$sparkle_framework" ]] || return 0
+
+  codesign_artifact "$sparkle_framework/Versions/B/Autoupdate"
+  codesign_artifact "$sparkle_framework/Versions/B/XPCServices/Downloader.xpc"
+  codesign_artifact "$sparkle_framework/Versions/B/XPCServices/Installer.xpc"
+  codesign_artifact "$sparkle_framework/Versions/B/Updater.app"
+  codesign_artifact "$sparkle_framework"
 }
 
 sign_runtime_artifacts() {
@@ -309,6 +349,7 @@ export CODESIGN_IDENTITY
 
 SWIFT_BIN="swift"
 SWIFT_MODULE_CACHE_DIR="$ROOT_DIR/.tmp/module-cache"
+CLANG_MODULE_CACHE_DIR="$SWIFT_MODULE_CACHE_DIR/clang"
 if [[ -n "${DEVELOPER_DIR:-}" ]]; then
   TOOLCHAIN_SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
   if [[ -x "$TOOLCHAIN_SWIFT" ]]; then
@@ -317,25 +358,29 @@ if [[ -n "${DEVELOPER_DIR:-}" ]]; then
 fi
 
 echo "Building $APP_DISPLAY_NAME ($BUILD_CONFIGURATION)..."
-mkdir -p "$SWIFT_MODULE_CACHE_DIR"
+mkdir -p "$SWIFT_MODULE_CACHE_DIR" "$CLANG_MODULE_CACHE_DIR"
+export CLANG_MODULE_CACHE_PATH="$CLANG_MODULE_CACHE_DIR"
 "$SWIFT_BIN" -module-cache-path "$SWIFT_MODULE_CACHE_DIR" "$ROOT_DIR/script/render_app_icon.swift"
-"$SWIFT_BIN" build -c "$BUILD_CONFIGURATION"
-BUILD_BINARY="$("$SWIFT_BIN" build -c "$BUILD_CONFIGURATION" --show-bin-path)/TextKit"
+"$SWIFT_BIN" build -c "$BUILD_CONFIGURATION" -Xcc -fmodules-cache-path="$CLANG_MODULE_CACHE_DIR"
+BUILD_BINARY="$("$SWIFT_BIN" build -c "$BUILD_CONFIGURATION" -Xcc -fmodules-cache-path="$CLANG_MODULE_CACHE_DIR" --show-bin-path)/TextKit"
 
 rm -rf "$APP_BUNDLE" "$STAGING_DIR" "$ZIP_PATH" "$DMG_PATH"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
+ensure_app_framework_rpath
 
 if [[ -d "$ROOT_DIR/Resources" ]]; then
   cp -R "$ROOT_DIR/Resources/." "$APP_RESOURCES/"
 fi
 
+copy_sparkle_framework
 write_launcher
 write_info_plist
 "$ROOT_DIR/script/bundle_llama_runtime.sh" "$APP_BUNDLE"
 codesign_artifact "$APP_BINARY"
 sign_runtime_artifacts
+codesign_embedded_sparkle
 codesign_artifact "$APP_BUNDLE"
 
 package_zip
@@ -349,6 +394,13 @@ if [[ -n "${CODESIGN_IDENTITY:-}" ]] && { [[ -n "${APPLE_API_KEY_P8:-}" && -n "$
   xcrun stapler staple "$DMG_PATH"
 else
   package_dmg
+fi
+
+if [[ -n "${SPARKLE_PRIVATE_ED_KEY:-}" ]]; then
+  "$ROOT_DIR/script/generate_appcast.sh" "$VERSION" "$ZIP_PATH" "$APPCAST_PATH"
+  echo "Built appcast: $APPCAST_PATH"
+else
+  echo "Skipping Sparkle appcast generation because SPARKLE_PRIVATE_ED_KEY is not set."
 fi
 
 echo "Built app: $APP_BUNDLE"

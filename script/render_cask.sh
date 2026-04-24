@@ -35,6 +35,8 @@ cask "textkit" do
 
   depends_on macos: ">= :tahoe"
 
+  auto_updates true
+
   app "TextKit.app"
 
   zap trash: [

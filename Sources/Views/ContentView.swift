@@ -311,6 +311,16 @@ struct ContentView: View {
 
             Spacer()
 
+            Button {
+                appModel.checkForUpdates()
+            } label: {
+                Label("Check for Updates", systemImage: "arrow.down.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!appModel.canCheckForUpdates)
+            .help("Check for updates")
+
             SettingsLink {
                 Label("Settings", systemImage: "gearshape")
                     .labelStyle(.iconOnly)

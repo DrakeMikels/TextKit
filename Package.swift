@@ -8,9 +8,15 @@ let package = Package(
     platforms: [
         .macOS("26.0")
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.1")
+    ],
     targets: [
         .executableTarget(
             name: "TextKit",
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources"
         ),
         .testTarget(

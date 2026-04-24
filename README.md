@@ -16,6 +16,7 @@ The app is built for a frictionless non-technical install path: packaged builds 
 - Local model setup UI with progress, model status, and retry support.
 - Advanced prompt profile editor with preview, reset, import/export, strict mode, temperature, max tokens, and seed controls.
 - Settings controls for warm runtime behavior, downloaded model cleanup, app data reset, and uninstall.
+- Sparkle-backed update checks for signed release builds.
 
 ## Local AI
 
@@ -148,6 +149,8 @@ The release script:
 - builds the release app
 - bundles the local `llama.cpp` runtime
 - packages ZIP and DMG artifacts
+- embeds Sparkle for in-app update checks
+- generates a signed Sparkle appcast when `SPARKLE_PRIVATE_ED_KEY` is provided
 - supports optional Developer ID signing and notarization when Apple credentials are provided through environment variables
 
 Generated artifacts are written under:
