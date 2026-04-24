@@ -8,6 +8,7 @@ struct CacheKey: Hashable {
     let modelProfile: ModelProfile
     let quantPreset: QuantPreset
     let refineInstruction: String
+    let pinnedInstructionFingerprint: String
     let configurationFingerprint: String
 }
 

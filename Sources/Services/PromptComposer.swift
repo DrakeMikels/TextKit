@@ -12,6 +12,8 @@ struct PromptComposer {
     """
 
     func compose(for request: GenerationRequest) -> ComposedPrompt {
+        let pinnedInstruction = request.pinnedInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        let refineInstruction = request.refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
         let systemPrompt = [
             Self.lockedBaseSystemPrompt,
             request.promptConfiguration.systemInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -21,7 +23,8 @@ struct PromptComposer {
 
         let parts = [
             request.promptConfiguration.taskTemplate.trimmingCharacters(in: .whitespacesAndNewlines),
-            request.refineInstruction.isEmpty ? nil : "Refine Instruction:\n\(request.refineInstruction)",
+            pinnedInstruction.isEmpty ? nil : "Pinned Instruction:\n\(pinnedInstruction)",
+            refineInstruction.isEmpty ? nil : "Refine Instruction:\n\(refineInstruction)",
             "Input:\n\(request.inputText)"
         ]
 
@@ -35,10 +38,12 @@ struct PromptComposer {
         for mode: ToolMode,
         configuration: ModePromptConfiguration,
         sampleInput: String,
+        pinnedInstruction: String = "",
         refineInstruction: String
     ) -> ComposedPrompt {
         let request = GenerationRequest(
             inputText: sampleInput,
+            pinnedInstruction: pinnedInstruction,
             refineInstruction: refineInstruction,
             tool: mode.tool,
             mode: mode,

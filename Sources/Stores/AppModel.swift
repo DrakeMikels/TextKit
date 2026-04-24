@@ -33,6 +33,7 @@ final class AppModel {
     var outputText = "Copy text anywhere on macOS to precompute a result."
     var statusText = "On-device"
     var reductionStats: ReductionStats?
+    var customInstructionName = ""
 
     init(
         settingsStore: SettingsStore = SettingsStore(),
@@ -44,7 +45,8 @@ final class AppModel {
         inferenceEngine: InferenceEngine = InferenceEngine(),
         reductionEngine: ReductionEngine = ReductionEngine(),
         outputPostProcessor: OutputPostProcessor = OutputPostProcessor(),
-        cacheStore: CacheStore = CacheStore()
+        cacheStore: CacheStore = CacheStore(),
+        startsClipboardMonitoring: Bool = true
     ) {
         self.settingsStore = settingsStore
         self.modelManager = modelManager
@@ -62,8 +64,13 @@ final class AppModel {
             uniqueKeysWithValues: ToolKind.allCases.map { ($0, $0.defaultMode) }
         )
         self.statusText = "Checking local model"
+        self.customInstructionName = settingsStore.selectedPinnedInstruction?.isBuiltIn == false
+            ? settingsStore.selectedPinnedInstruction?.name ?? ""
+            : ""
 
-        startClipboardMonitoring()
+        if startsClipboardMonitoring {
+            startClipboardMonitoring()
+        }
 
         Task { [weak self] in
             guard let self else { return }
@@ -115,6 +122,29 @@ final class AppModel {
 
     var canSubmitReduction: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && hasPendingReductionChanges
+    }
+
+    var pinnedInstructionStatusText: String {
+        let activeInstruction = settingsStore.activePinnedInstructionText
+        if settingsStore.isPinnedInstructionEnabled, !activeInstruction.isEmpty {
+            return "Pinned instruction active"
+        }
+
+        return "No pinned instruction"
+    }
+
+    var canSavePinnedInstructionAsCustom: Bool {
+        !settingsStore.pinnedInstructionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var canRenamePinnedInstruction: Bool {
+        guard settingsStore.selectedPinnedInstruction?.isBuiltIn == false else { return false }
+        let trimmedName = customInstructionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmedName.isEmpty && trimmedName != settingsStore.selectedPinnedInstruction?.name
+    }
+
+    var canDeletePinnedInstruction: Bool {
+        settingsStore.selectedPinnedInstruction?.isBuiltIn == false
     }
 
     var reductionSummaryText: String? {
@@ -224,6 +254,67 @@ final class AppModel {
         regenerateNow()
     }
 
+    func selectPinnedInstruction(id: String) {
+        settingsStore.selectPinnedInstruction(id: id)
+        customInstructionName = settingsStore.selectedPinnedInstruction?.isBuiltIn == false
+            ? settingsStore.selectedPinnedInstruction?.name ?? ""
+            : ""
+        cacheStore.invalidateAll()
+        if settingsStore.isPinnedInstructionEnabled {
+            scheduleRegeneration()
+        }
+    }
+
+    func updatePinnedInstructionText(_ text: String) {
+        settingsStore.pinnedInstructionText = text
+        cacheStore.invalidateAll()
+    }
+
+    func savePinnedInstructionAsCustom() {
+        let baseName = customInstructionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackName = settingsStore.selectedPinnedInstruction?.isBuiltIn == false
+            ? settingsStore.selectedPinnedInstruction?.name ?? "Custom Instruction"
+            : "\(settingsStore.selectedPinnedInstruction?.name ?? "Pinned Instruction") Copy"
+
+        guard let instruction = settingsStore.saveCustomPinnedInstruction(
+            name: baseName.isEmpty ? fallbackName : baseName,
+            instruction: settingsStore.pinnedInstructionText
+        ) else {
+            return
+        }
+
+        customInstructionName = instruction.name
+        cacheStore.invalidateAll()
+        if settingsStore.isPinnedInstructionEnabled {
+            scheduleRegeneration()
+        }
+    }
+
+    func renamePinnedInstruction() {
+        guard settingsStore.renameCustomPinnedInstruction(
+            id: settingsStore.selectedPinnedInstructionId,
+            name: customInstructionName
+        ) else {
+            return
+        }
+    }
+
+    func deletePinnedInstruction() {
+        guard settingsStore.deleteCustomPinnedInstruction(id: settingsStore.selectedPinnedInstructionId) else {
+            return
+        }
+
+        customInstructionName = ""
+        cacheStore.invalidateAll()
+        scheduleRegeneration()
+    }
+
+    func clearPinnedInstruction() {
+        settingsStore.isPinnedInstructionEnabled = false
+        cacheStore.invalidateAll()
+        scheduleRegeneration()
+    }
+
     func submitReduction() {
         guard selectedTool == .reduce else { return }
 
@@ -270,6 +361,7 @@ final class AppModel {
 
         let request = GenerationRequest(
             inputText: trimmedInput,
+            pinnedInstruction: settingsStore.activePinnedInstructionText,
             refineInstruction: refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines),
             tool: mode.tool,
             mode: mode,
@@ -363,6 +455,7 @@ final class AppModel {
 
         let request = GenerationRequest(
             inputText: trimmed,
+            pinnedInstruction: settingsStore.activePinnedInstructionText,
             refineInstruction: refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines),
             tool: selectedTool,
             mode: selectedMode,
@@ -379,6 +472,7 @@ final class AppModel {
             modelProfile: request.modelProfile,
             quantPreset: request.quantPreset,
             refineInstruction: request.refineInstruction,
+            pinnedInstructionFingerprint: settingsStore.activePinnedInstructionFingerprint,
             configurationFingerprint: settingsStore.configurationFingerprint(for: selectedMode)
         )
 
@@ -646,5 +740,18 @@ final class AppModel {
 
         pendingInitialSetupWindowRequest = false
         requestInitialSetupWindowPresentation()
+    }
+
+    func _requestForPrecomputeTests(inputText: String) -> GenerationRequest {
+        GenerationRequest(
+            inputText: inputText.trimmingCharacters(in: .whitespacesAndNewlines),
+            pinnedInstruction: settingsStore.activePinnedInstructionText,
+            refineInstruction: refineInstruction.trimmingCharacters(in: .whitespacesAndNewlines),
+            tool: selectedTool,
+            mode: selectedMode,
+            modelProfile: settingsStore.modelProfile,
+            quantPreset: settingsStore.installedQuantPreset,
+            promptConfiguration: settingsStore.promptConfiguration(for: selectedMode)
+        )
     }
 }

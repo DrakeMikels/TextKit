@@ -51,6 +51,7 @@ struct ContentView: View {
             if appModel.selectedTool == .reduce {
                 reductionSubmitSection
             } else {
+                pinnedInstructionSection
                 refineSection
             }
 
@@ -100,10 +101,10 @@ struct ContentView: View {
 
     private var refineSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Refine")
+            Text("Refine This Result")
                 .font(.subheadline.weight(.semibold))
             HStack(spacing: 8) {
-                TextField("Refine the current result", text: $appModel.refineDraft)
+                TextField("Add a one-time tweak for this result", text: $appModel.refineDraft)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
                         appModel.submitRefine()
@@ -128,6 +129,87 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var pinnedInstructionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pinned Instruction")
+                .font(.subheadline.weight(.semibold))
+
+            HStack(spacing: 8) {
+                Picker("Pinned Instruction", selection: pinnedInstructionSelection) {
+                    ForEach(appModel.settingsStore.pinnedInstructions) { instruction in
+                        Text(instruction.name).tag(instruction.id)
+                    }
+                    Divider()
+                    Text("Custom…").tag(PinnedInstruction.customOptionId)
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button {
+                    appModel.settingsStore.isPinnedInstructionEnabled.toggle()
+                } label: {
+                    Label(
+                        appModel.settingsStore.isPinnedInstructionEnabled ? "Locked" : "Pin",
+                        systemImage: appModel.settingsStore.isPinnedInstructionEnabled ? "lock.fill" : "lock.open"
+                    )
+                    .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help(appModel.settingsStore.isPinnedInstructionEnabled ? "Disable pinned instruction" : "Keep this instruction active")
+            }
+
+            TextField("Instruction to reuse across clipboard changes", text: pinnedInstructionText, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...3)
+
+            Text(appModel.pinnedInstructionStatusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                TextField("Preset name", text: $appModel.customInstructionName)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
+
+                Button("Save as Custom") {
+                    appModel.savePinnedInstructionAsCustom()
+                }
+                .disabled(!appModel.canSavePinnedInstructionAsCustom)
+
+                Button("Rename") {
+                    appModel.renamePinnedInstruction()
+                }
+                .disabled(!appModel.canRenamePinnedInstruction)
+
+                Button("Delete") {
+                    appModel.deletePinnedInstruction()
+                }
+                .disabled(!appModel.canDeletePinnedInstruction)
+
+                Button("Clear") {
+                    appModel.clearPinnedInstruction()
+                }
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private var pinnedInstructionSelection: Binding<String> {
+        Binding(
+            get: { appModel.settingsStore.selectedPinnedInstructionId },
+            set: { appModel.selectPinnedInstruction(id: $0) }
+        )
+    }
+
+    private var pinnedInstructionText: Binding<String> {
+        Binding(
+            get: { appModel.settingsStore.pinnedInstructionText },
+            set: { appModel.updatePinnedInstructionText($0) }
+        )
     }
 
     private var reductionSubmitSection: some View {

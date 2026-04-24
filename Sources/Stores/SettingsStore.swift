@@ -16,6 +16,10 @@ final class SettingsStore {
         static let strictModeEnabled = "settings.strictModeEnabled"
         static let promptProfile = "settings.promptProfile"
         static let hasShownInitialSetupPrompt = "settings.hasShownInitialSetupPrompt"
+        static let customPinnedInstructions = "settings.customPinnedInstructions"
+        static let selectedPinnedInstructionId = "settings.selectedPinnedInstructionId"
+        static let pinnedInstructionText = "settings.pinnedInstructionText"
+        static let isPinnedInstructionEnabled = "settings.isPinnedInstructionEnabled"
     }
 
     private let defaults: UserDefaults
@@ -74,6 +78,31 @@ final class SettingsStore {
         didSet { defaults.set(hasShownInitialSetupPrompt, forKey: Keys.hasShownInitialSetupPrompt) }
     }
 
+    var selectedPinnedInstructionId: String {
+        didSet {
+            defaults.set(selectedPinnedInstructionId, forKey: Keys.selectedPinnedInstructionId)
+            bumpGenerationIfPinned()
+        }
+    }
+
+    var pinnedInstructionText: String {
+        didSet {
+            defaults.set(pinnedInstructionText, forKey: Keys.pinnedInstructionText)
+            bumpGenerationIfPinned()
+        }
+    }
+
+    var isPinnedInstructionEnabled: Bool {
+        didSet {
+            defaults.set(isPinnedInstructionEnabled, forKey: Keys.isPinnedInstructionEnabled)
+            generationSettingsRevision += 1
+        }
+    }
+
+    private var customPinnedInstructions: [PinnedInstruction] {
+        didSet { persistCustomPinnedInstructions() }
+    }
+
     private var modeConfigurations: [String: ModePromptConfiguration] {
         didSet {
             persistPromptProfile()
@@ -92,11 +121,104 @@ final class SettingsStore {
         self.warmCacheSeconds = resolvedDefaults.object(forKey: Keys.warmCacheSeconds) as? Double ?? 45
         self.strictModeEnabled = resolvedDefaults.object(forKey: Keys.strictModeEnabled) as? Bool ?? false
         self.hasShownInitialSetupPrompt = resolvedDefaults.object(forKey: Keys.hasShownInitialSetupPrompt) as? Bool ?? false
+        let loadedCustomPinnedInstructions = SettingsStore.loadCustomPinnedInstructions(from: resolvedDefaults)
+        self.customPinnedInstructions = loadedCustomPinnedInstructions
+        let defaultInstruction = PinnedInstruction.conciseProfessional
+        let selectedID = resolvedDefaults.string(forKey: Keys.selectedPinnedInstructionId) ?? defaultInstruction.id
+        let allInstructions = PinnedInstruction.builtIns + loadedCustomPinnedInstructions
+        let allInstructionIDs = Set(allInstructions.map(\.id))
+        let resolvedSelectedPinnedInstructionId = allInstructionIDs.contains(selectedID) ? selectedID : defaultInstruction.id
+        self.selectedPinnedInstructionId = resolvedSelectedPinnedInstructionId
+        self.pinnedInstructionText = resolvedDefaults.string(forKey: Keys.pinnedInstructionText)
+            ?? allInstructions
+                .first(where: { $0.id == resolvedSelectedPinnedInstructionId })?
+                .instruction
+            ?? defaultInstruction.instruction
+        self.isPinnedInstructionEnabled = resolvedDefaults.object(forKey: Keys.isPinnedInstructionEnabled) as? Bool ?? false
         self.modeConfigurations = SettingsStore.loadPromptProfile(from: resolvedDefaults)
 
         if resolvedDefaults.string(forKey: Keys.quantPreset) != installedQuantPreset.rawValue {
             resolvedDefaults.set(installedQuantPreset.rawValue, forKey: Keys.quantPreset)
         }
+    }
+
+    var pinnedInstructions: [PinnedInstruction] {
+        PinnedInstruction.builtIns + customPinnedInstructions
+    }
+
+    var selectedPinnedInstruction: PinnedInstruction? {
+        pinnedInstructions.first { $0.id == selectedPinnedInstructionId }
+    }
+
+    var selectedPinnedInstructionIsBuiltIn: Bool {
+        selectedPinnedInstruction?.isBuiltIn ?? false
+    }
+
+    var activePinnedInstructionText: String {
+        guard isPinnedInstructionEnabled else { return "" }
+        return pinnedInstructionText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var activePinnedInstructionFingerprint: String {
+        let text = activePinnedInstructionText
+        guard !text.isEmpty else { return "" }
+        return "\(selectedPinnedInstructionId)|\(text)"
+    }
+
+    func selectPinnedInstruction(id: String) {
+        if id == PinnedInstruction.customOptionId {
+            selectedPinnedInstructionId = id
+            pinnedInstructionText = ""
+            return
+        }
+
+        guard let instruction = pinnedInstructions.first(where: { $0.id == id }) else { return }
+        selectedPinnedInstructionId = instruction.id
+        pinnedInstructionText = instruction.instruction
+    }
+
+    @discardableResult
+    func saveCustomPinnedInstruction(name: String, instruction: String) -> PinnedInstruction? {
+        let trimmedInstruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInstruction.isEmpty else { return nil }
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let now = Date()
+        let customInstruction = PinnedInstruction(
+            name: trimmedName.isEmpty ? "Custom Instruction" : trimmedName,
+            instruction: trimmedInstruction,
+            isBuiltIn: false,
+            createdAt: now,
+            updatedAt: now
+        )
+
+        customPinnedInstructions.append(customInstruction)
+        selectedPinnedInstructionId = customInstruction.id
+        pinnedInstructionText = customInstruction.instruction
+        return customInstruction
+    }
+
+    @discardableResult
+    func renameCustomPinnedInstruction(id: String, name: String) -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return false }
+        guard let index = customPinnedInstructions.firstIndex(where: { $0.id == id }) else { return false }
+
+        customPinnedInstructions[index].name = trimmedName
+        customPinnedInstructions[index].updatedAt = Date()
+        return true
+    }
+
+    @discardableResult
+    func deleteCustomPinnedInstruction(id: String) -> Bool {
+        guard let index = customPinnedInstructions.firstIndex(where: { $0.id == id }) else { return false }
+
+        customPinnedInstructions.remove(at: index)
+        if selectedPinnedInstructionId == id {
+            selectPinnedInstruction(id: PinnedInstruction.conciseProfessional.id)
+            isPinnedInstructionEnabled = false
+        }
+        return true
     }
 
     func promptConfiguration(for mode: ToolMode) -> ModePromptConfiguration {
@@ -215,6 +337,18 @@ final class SettingsStore {
         }
     }
 
+    private func persistCustomPinnedInstructions() {
+        if let data = try? encoder.encode(customPinnedInstructions) {
+            defaults.set(data, forKey: Keys.customPinnedInstructions)
+        }
+    }
+
+    private func bumpGenerationIfPinned() {
+        if isPinnedInstructionEnabled {
+            generationSettingsRevision += 1
+        }
+    }
+
     private static func loadPromptProfile(from defaults: UserDefaults) -> [String: ModePromptConfiguration] {
         guard
             let data = defaults.data(forKey: Keys.promptProfile),
@@ -229,6 +363,17 @@ final class SettingsStore {
                 return (mode.id, migratePromptConfiguration(configuration, for: mode, from: document.version))
             }
         )
+    }
+
+    private static func loadCustomPinnedInstructions(from defaults: UserDefaults) -> [PinnedInstruction] {
+        guard
+            let data = defaults.data(forKey: Keys.customPinnedInstructions),
+            let instructions = try? JSONDecoder().decode([PinnedInstruction].self, from: data)
+        else {
+            return []
+        }
+
+        return instructions.filter { !$0.isBuiltIn }
     }
 
     private static func runtimeDefaults() -> UserDefaults {
