@@ -149,16 +149,26 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button {
-                    appModel.settingsStore.isPinnedInstructionEnabled.toggle()
+                    withAnimation(.spring(response: 0.24, dampingFraction: 0.72)) {
+                        appModel.settingsStore.isPinnedInstructionEnabled.toggle()
+                    }
                 } label: {
-                    Label(
-                        appModel.settingsStore.isPinnedInstructionEnabled ? "Locked" : "Pin",
-                        systemImage: appModel.settingsStore.isPinnedInstructionEnabled ? "lock.fill" : "lock.open"
-                    )
-                    .labelStyle(.titleAndIcon)
+                    Image(systemName: appModel.settingsStore.isPinnedInstructionEnabled ? "lock.fill" : "lock.open")
+                        .font(.system(size: 13, weight: .semibold))
+                        .symbolEffect(.bounce, value: appModel.settingsStore.isPinnedInstructionEnabled)
+                        .frame(width: 30, height: 26)
+                        .foregroundStyle(appModel.settingsStore.isPinnedInstructionEnabled ? Color.yellow : Color.secondary)
+                        .background {
+                            Capsule(style: .continuous)
+                                .fill(appModel.settingsStore.isPinnedInstructionEnabled ? Color.yellow.opacity(0.18) : Color.secondary.opacity(0.12))
+                        }
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .strokeBorder(appModel.settingsStore.isPinnedInstructionEnabled ? Color.yellow.opacity(0.65) : Color.white.opacity(0.12), lineWidth: 0.8)
+                        }
+                        .contentTransition(.symbolEffect(.replace))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.plain)
                 .help(appModel.settingsStore.isPinnedInstructionEnabled ? "Disable pinned instruction" : "Keep this instruction active")
             }
 
