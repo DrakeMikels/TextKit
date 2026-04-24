@@ -4,6 +4,8 @@ TextKit is a native macOS menu bar utility for clipboard-first text work. Copy t
 
 The app is built for a frictionless non-technical install path: packaged builds bundle the local `llama.cpp` runtime, prompt users through first-run model setup, and run inference on-device after the selected model has been downloaded.
 
+![TextKit menu bar popover showing local rewrite tools](docs/assets/textkit-popover.png)
+
 ## Current Product
 
 - Menu bar app with an icon-only status item and SwiftUI popover.
