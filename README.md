@@ -54,7 +54,7 @@ TextKit is a Swift Package macOS app.
 
 - macOS 26 target
 - Xcode 26 toolchain
-- Swift 6.3 package manifest
+- Swift 6.2+ package manifest
 - Full Xcode install expected at `/Volumes/SSD/Applications/Xcode.app/Contents/Developer` for the local scripts in this workspace
 
 Build and launch the local app:
