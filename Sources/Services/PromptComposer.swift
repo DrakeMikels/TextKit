@@ -23,7 +23,11 @@ struct PromptComposer {
 
         let parts = [
             request.promptConfiguration.taskTemplate.trimmingCharacters(in: .whitespacesAndNewlines),
-            pinnedInstruction.isEmpty ? nil : "Pinned Instruction:\n\(pinnedInstruction)",
+            pinnedInstruction.isEmpty ? nil : """
+            Standing Pinned Instruction:
+            Apply this instruction to the entire output. Treat it as the primary reusable style or task constraint unless it conflicts with the selected tool.
+            \(pinnedInstruction)
+            """,
             refineInstruction.isEmpty ? nil : "Refine Instruction:\n\(refineInstruction)",
             "Input:\n\(request.inputText)"
         ]

@@ -130,7 +130,11 @@ final class AppModel {
             return "Pinned instruction active"
         }
 
-        return "No pinned instruction"
+        if !settingsStore.pinnedInstructionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Instruction selected but not pinned"
+        }
+
+        return "No pinned instruction selected"
     }
 
     var canSavePinnedInstructionAsCustom: Bool {

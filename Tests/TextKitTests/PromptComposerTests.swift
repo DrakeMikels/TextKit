@@ -39,7 +39,9 @@ struct PromptComposerTests {
 
         let prompt = composer.compose(for: request)
 
-        #expect(prompt.userPrompt.contains("Pinned Instruction:\nMake it concise and executive-ready."))
+        #expect(prompt.userPrompt.contains("Standing Pinned Instruction:"))
+        #expect(prompt.userPrompt.contains("Apply this instruction to the entire output."))
+        #expect(prompt.userPrompt.contains("Make it concise and executive-ready."))
         #expect(!prompt.userPrompt.contains("Refine Instruction:"))
     }
 
@@ -59,7 +61,7 @@ struct PromptComposerTests {
 
         let prompt = composer.compose(for: request)
 
-        #expect(!prompt.userPrompt.contains("Pinned Instruction:"))
+        #expect(!prompt.userPrompt.contains("Standing Pinned Instruction:"))
     }
 
     @Test
@@ -78,10 +80,11 @@ struct PromptComposerTests {
 
         let prompt = composer.compose(for: request)
 
-        #expect(prompt.userPrompt.contains("Pinned Instruction:\nMake it concise and executive-ready."))
+        #expect(prompt.userPrompt.contains("Standing Pinned Instruction:"))
+        #expect(prompt.userPrompt.contains("Make it concise and executive-ready."))
         #expect(prompt.userPrompt.contains("Refine Instruction:\nMake it slightly warmer."))
         #expect(
-            prompt.userPrompt.range(of: "Pinned Instruction:")!.lowerBound
+            prompt.userPrompt.range(of: "Standing Pinned Instruction:")!.lowerBound
                 < prompt.userPrompt.range(of: "Refine Instruction:")!.lowerBound
         )
     }
